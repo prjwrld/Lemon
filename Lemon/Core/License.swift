@@ -121,10 +121,36 @@ final class LicenseManager {
 }
 
 /// Small wrapper around the Keychain for a few strings.
+/// Debug builds are re-signed on every build, so macOS would ask for the Keychain password
+/// each launch; they keep these values in UserDefaults instead.
 enum Keychain {
-    private static let service = "com.prajwal.Lemon"
+    private static let service = "com.prajwal.Lemon.license"
 
     static func read(_ account: String) -> String? {
+        #if DEBUG
+        return UserDefaults.standard.string(forKey: "debug.keychain.\(account)")
+        #else
+        return readKeychain(account)
+        #endif
+    }
+
+    static func write(_ account: String, _ value: String) {
+        #if DEBUG
+        UserDefaults.standard.set(value, forKey: "debug.keychain.\(account)")
+        #else
+        writeKeychain(account, value)
+        #endif
+    }
+
+    static func delete(_ account: String) {
+        #if DEBUG
+        UserDefaults.standard.removeObject(forKey: "debug.keychain.\(account)")
+        #else
+        deleteKeychain(account)
+        #endif
+    }
+
+    private static func readKeychain(_ account: String) -> String? {
         let query: [CFString: Any] = [kSecClass: kSecClassGenericPassword, kSecAttrService: service,
                                       kSecAttrAccount: account, kSecReturnData: true, kSecMatchLimit: kSecMatchLimitOne]
         var result: AnyObject?
@@ -132,7 +158,7 @@ enum Keychain {
         return String(data: data, encoding: .utf8)
     }
 
-    static func write(_ account: String, _ value: String) {
+    private static func writeKeychain(_ account: String, _ value: String) {
         let query: [CFString: Any] = [kSecClass: kSecClassGenericPassword, kSecAttrService: service, kSecAttrAccount: account]
         let data = Data(value.utf8)
         if SecItemUpdate(query as CFDictionary, [kSecValueData: data] as CFDictionary) == errSecItemNotFound {
@@ -142,7 +168,7 @@ enum Keychain {
         }
     }
 
-    static func delete(_ account: String) {
+    private static func deleteKeychain(_ account: String) {
         let query: [CFString: Any] = [kSecClass: kSecClassGenericPassword, kSecAttrService: service, kSecAttrAccount: account]
         SecItemDelete(query as CFDictionary)
     }

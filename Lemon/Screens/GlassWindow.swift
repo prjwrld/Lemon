@@ -74,7 +74,9 @@ struct GlassShell<Content: View, Footer: View>: View {
         }
         .padding(18)
         .frame(maxWidth: .infinity, maxHeight: .infinity)
-        .glassEffect(.regular, in: .rect(cornerRadius: 28))
+        // Big glass panels need more body than small controls (Apple's guidance), so the window
+        // colour is mixed in; this keeps text readable over busy windows behind it.
+        .glassEffect(.regular.tint(Color(nsColor: .windowBackgroundColor).opacity(0.72)), in: .rect(cornerRadius: 28))
         .padding(1)
     }
 }

@@ -36,7 +36,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         watcher.start()
         hud.start()
 
-        if !AppSettings.shared.hasSeenWelcome && !UserDefaults.standard.bool(forKey: "LemonDemoWheel") {
+        let demo = UserDefaults.standard.bool(forKey: "LemonDemoWheel") || UserDefaults.standard.string(forKey: "LemonDemoEditor") != nil
+        if !AppSettings.shared.hasSeenWelcome && !demo {
             WelcomeWindow.show()
         }
         Task { await LicenseManager.shared.revalidate() }
@@ -93,7 +94,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     /// "-LemonDemoBackdrop /path/to/image" to put a picture behind it, to judge the glass.
     private func runDesignDemoIfAsked() {
         let defaults = UserDefaults.standard
-        guard defaults.bool(forKey: "LemonDemoWheel"), let screen = NSScreen.main else { return }
+        guard defaults.bool(forKey: "LemonDemoWheel") || defaults.string(forKey: "LemonDemoEditor") != nil,
+              let screen = NSScreen.main else { return }
         if let path = defaults.string(forKey: "LemonDemoBackdrop"), let image = NSImage(contentsOfFile: path) {
             let size: CGFloat = 560
             let window = NSWindow(
@@ -107,8 +109,14 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             demoBackdrop = window
             DispatchQueue.main.asyncAfter(deadline: .now() + 8.3) { self.demoBackdrop?.orderOut(nil) }
         }
-        let mode = WheelMode(rawValue: defaults.string(forKey: "LemonDemoMode") ?? "") ?? .convert
         let demoFile = URL(fileURLWithPath: defaults.string(forKey: "LemonDemoFile") ?? "/tmp/demo.jpg")
+        // "-LemonDemoEditor crop" opens an editor for the demo file instead of the wheel.
+        if let name = defaults.string(forKey: "LemonDemoEditor"), let tool = Tool(rawValue: name) {
+            let files = (defaults.string(forKey: "LemonDemoFiles")?.components(separatedBy: "|").map { URL(fileURLWithPath: $0) }) ?? [demoFile]
+            EditorPresenter.present(tool, files: files) { _ in }
+            return
+        }
+        let mode = WheelMode(rawValue: defaults.string(forKey: "LemonDemoMode") ?? "") ?? .convert
         _ = wheel.show(files: [demoFile], at: NSPoint(x: screen.frame.midX, y: screen.frame.midY), mode: mode)
         for (step, slice) in [0, 1, 2, nil].enumerated() {
             DispatchQueue.main.asyncAfter(deadline: .now() + 1.5 + Double(step) * 1.5) { self.wheel.demoHover(slice) }
