@@ -93,30 +93,23 @@ struct WheelView: View {
                 .background(Circle().fill(plateDimming(geometry)))
                 .overlay(Circle().strokeBorder(Self.edgeLight, lineWidth: 1.2))
 
+            // The middle is see-through too; only a thin glass ring marks its edge.
             Circle()
-                .fill(.black.opacity(reduceTransparency ? 0.95 : 0.38))
+                .fill(.black.opacity(reduceTransparency ? 0.95 : 0))
                 .overlay(Circle().strokeBorder(.white.opacity(0.16), lineWidth: 1.5))
                 .frame(width: geometry.holeDiameter - 10, height: geometry.holeDiameter - 10)
         }
         .frame(width: geometry.diameter, height: geometry.diameter)
     }
 
-    /// The plate's rim and the gaps stay almost fully see-through, so the glass bends
-    /// what's behind it. Only the middle gets dark, to keep its label readable.
+    /// The whole plate stays almost fully see-through, so the glass bends what's behind it.
     private func plateDimming(_ geometry: WheelGeometry) -> RadialGradient {
         if reduceTransparency {
             return RadialGradient(colors: [.black.opacity(0.92)], center: .center, startRadius: 0, endRadius: 1)
         }
-        let radius = geometry.diameter / 2
-        let middle = geometry.innerRadius / radius
         return RadialGradient(
-            stops: [
-                .init(color: .black.opacity(0.45), location: 0),
-                .init(color: .black.opacity(0.40), location: middle),
-                .init(color: .black.opacity(0.10), location: middle + 0.08),
-                .init(color: .black.opacity(0.04), location: 1),
-            ],
-            center: .center, startRadius: 0, endRadius: radius
+            colors: [.black.opacity(0.10), .black.opacity(0.04)],
+            center: .center, startRadius: 0, endRadius: geometry.diameter / 2
         )
     }
 
@@ -163,6 +156,8 @@ struct WheelView: View {
         .padding(.horizontal, 8)
         // A short, chunky pill with a dark margin around it, as in the reference.
         .frame(width: 66, height: 30)
+        // A light tint inside the pill keeps the label readable over bright backgrounds.
+        .background(Capsule().fill(.black.opacity(reduceTransparency ? 0.9 : 0.28)))
         .glassEffect(reduceTransparency ? .identity : .regular, in: .capsule)
     }
 
