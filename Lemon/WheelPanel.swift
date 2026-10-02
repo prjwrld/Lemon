@@ -56,7 +56,7 @@ final class WheelController {
 
 /// A see-through window that floats above everything and never steals focus.
 final class WheelPanel: NSPanel {
-    static let size: CGFloat = 290 // a little bigger than the wheel, for its edge glow
+    static let size: CGFloat = 330 // bigger than the wheel, to fit its shadow
 
     init(model: WheelModel, onDrop: @escaping ([URL], ImageFormat) -> Void) {
         super.init(

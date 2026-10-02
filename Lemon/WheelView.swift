@@ -78,8 +78,14 @@ struct WheelView: View {
 
     /// A thin highlight along glass edges, brighter at the top as if lit from above.
     private static let edgeLight = LinearGradient(
-        colors: [.white.opacity(0.38), .white.opacity(0.08), .white.opacity(0.18)],
+        colors: [.white.opacity(0.65), .white.opacity(0.12), .white.opacity(0.30)],
         startPoint: .top, endPoint: .bottom
+    )
+
+    /// A soft diagonal shine across each piece of glass, like light catching its surface.
+    private static let sheen = LinearGradient(
+        colors: [.white.opacity(0.18), .white.opacity(0.04), .clear],
+        startPoint: .topLeading, endPoint: .bottomTrailing
     )
 
     /// With Reduce Transparency on, the glass is replaced by solid colours.
@@ -88,6 +94,8 @@ struct WheelView: View {
     /// The dark glass disc behind the slices, with its dark middle.
     private func plate(_ geometry: WheelGeometry) -> some View {
         ZStack {
+            dropShadow(geometry)
+
             Color.clear
                 .glassEffect(clearGlass, in: .circle)
                 .background(Circle().fill(plateDimming(geometry)))
@@ -100,6 +108,20 @@ struct WheelView: View {
                 .frame(width: geometry.holeDiameter - 10, height: geometry.holeDiameter - 10)
         }
         .frame(width: geometry.diameter, height: geometry.diameter)
+    }
+
+    /// A soft shadow around (never under) the plate, so the wheel floats like system glass.
+    private func dropShadow(_ geometry: WheelGeometry) -> some View {
+        Circle()
+            .fill(.black.opacity(reduceTransparency ? 0 : 0.35))
+            .blur(radius: 14)
+            .offset(y: 6)
+            .mask {
+                Rectangle()
+                    .frame(width: geometry.diameter + 60, height: geometry.diameter + 60)
+                    .overlay(Circle().frame(width: geometry.diameter - 2, height: geometry.diameter - 2).blendMode(.destinationOut))
+                    .compositingGroup()
+            }
     }
 
     /// The whole plate stays almost fully see-through, so the glass bends what's behind it.
@@ -123,13 +145,15 @@ struct WheelView: View {
             .shadow(color: .black.opacity(isHovered ? 0 : 0.4), radius: 2, y: 1)
             .offset(geometry.labelOffset(of: index))
             .frame(width: geometry.diameter, height: geometry.diameter)
+            .background(shape.fill(Self.sheen))
             .overlay(shape.stroke(Self.edgeLight, lineWidth: 1))
             .glassEffect(isHovered ? clearGlass.tint(.lemon).interactive() : clearGlass.interactive(), in: shape)
             .background {
                 if isHovered {
                     shape.fill(LinearGradient(colors: [.lemonDeep, .lemon], startPoint: .top, endPoint: .bottom))
                 } else {
-                    shape.fill(.white.opacity(reduceTransparency ? 0.22 : 0.10))
+                    // Only a hint of frosting, so the clear glass shows the most refraction.
+                    shape.fill(.white.opacity(reduceTransparency ? 0.22 : 0.04))
                 }
             }
     }
@@ -150,15 +174,18 @@ struct WheelView: View {
         }
         // Two lines ("2 MIXED FILES" + size) use smaller text so the pill keeps its shape.
         .font(.system(size: isTwoLines ? 8 : 11, weight: .bold))
-        .foregroundStyle(.white.opacity(0.88))
+        .foregroundStyle(.white)
+        .shadow(color: .black.opacity(0.4), radius: 2, y: 1)
         .lineLimit(1)
         .minimumScaleFactor(0.6)
         .padding(.horizontal, 8)
         // A short, chunky pill with a dark margin around it, as in the reference.
         .frame(width: 66, height: 30)
-        // A light tint inside the pill keeps the label readable over bright backgrounds.
-        .background(Capsule().fill(.black.opacity(reduceTransparency ? 0.9 : 0.28)))
-        .glassEffect(reduceTransparency ? .identity : .regular, in: .capsule)
+        // Same glass as the slices, so the pill looks like one of them.
+        .background(Capsule().fill(Self.sheen))
+        .overlay(Capsule().stroke(Self.edgeLight, lineWidth: 1))
+        .glassEffect(clearGlass, in: .capsule)
+        .background(Capsule().fill(.white.opacity(reduceTransparency ? 0.22 : 0.04)))
     }
 
     private var isTwoLines: Bool {
