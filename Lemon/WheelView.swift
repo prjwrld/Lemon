@@ -90,8 +90,8 @@ struct WheelView: View {
         ZStack {
             Color.clear
                 .glassEffect(clearGlass, in: .circle)
-                .background(Circle().fill(.black.opacity(reduceTransparency ? 0.92 : 0.55)))
-                .overlay(Circle().strokeBorder(Self.edgeLight, lineWidth: 1))
+                .background(Circle().fill(plateDimming(geometry)))
+                .overlay(Circle().strokeBorder(Self.edgeLight, lineWidth: 1.2))
 
             Circle()
                 .fill(.black.opacity(reduceTransparency ? 0.95 : 0.38))
@@ -99,6 +99,25 @@ struct WheelView: View {
                 .frame(width: geometry.holeDiameter - 10, height: geometry.holeDiameter - 10)
         }
         .frame(width: geometry.diameter, height: geometry.diameter)
+    }
+
+    /// The plate's rim and the gaps stay almost fully see-through, so the glass bends
+    /// what's behind it. Only the middle gets dark, to keep its label readable.
+    private func plateDimming(_ geometry: WheelGeometry) -> RadialGradient {
+        if reduceTransparency {
+            return RadialGradient(colors: [.black.opacity(0.92)], center: .center, startRadius: 0, endRadius: 1)
+        }
+        let radius = geometry.diameter / 2
+        let middle = geometry.innerRadius / radius
+        return RadialGradient(
+            stops: [
+                .init(color: .black.opacity(0.45), location: 0),
+                .init(color: .black.opacity(0.40), location: middle),
+                .init(color: .black.opacity(0.10), location: middle + 0.08),
+                .init(color: .black.opacity(0.04), location: 1),
+            ],
+            center: .center, startRadius: 0, endRadius: radius
+        )
     }
 
     private func slice(_ choice: ImageFormat, at index: Int, geometry: WheelGeometry) -> some View {
@@ -136,14 +155,19 @@ struct WheelView: View {
                 }
             }
         }
-        .font(.system(size: 11, weight: .bold))
-        .foregroundStyle(.white.opacity(0.9))
+        // Two lines ("2 MIXED FILES" + size) use smaller text so the pill keeps its shape.
+        .font(.system(size: isTwoLines ? 8 : 11, weight: .bold))
+        .foregroundStyle(.white.opacity(0.88))
         .lineLimit(1)
-        .minimumScaleFactor(0.7)
-        .padding(.horizontal, 12)
-        .padding(.vertical, 7)
-        .frame(minWidth: 76, maxWidth: model.geometry.holeDiameter - 12)
+        .minimumScaleFactor(0.6)
+        .padding(.horizontal, 8)
+        // A short, chunky pill with a dark margin around it, as in the reference.
+        .frame(width: 66, height: 30)
         .glassEffect(reduceTransparency ? .identity : .regular, in: .capsule)
+    }
+
+    private var isTwoLines: Bool {
+        model.hoveredChoice == nil && !model.fileCountText.isEmpty && !model.sizeText.isEmpty
     }
 }
 
