@@ -3,3 +3,6 @@ build/
 DerivedData/
 xcuserdata/
 *.xcuserstate
+Vendor/build/
+Vendor/bin/
+Vendor-build.log

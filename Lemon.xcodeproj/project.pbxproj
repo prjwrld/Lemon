@@ -55,6 +55,7 @@
 				AA0000000000000000000007 /* Sources */,
 				AA0000000000000000000003 /* Frameworks */,
 				AA0000000000000000000008 /* Resources */,
+				AA0000000000000000000016 /* Embed FFmpeg */,
 			);
 			buildRules = (
 			);
@@ -113,6 +114,29 @@
 			runOnlyForDeploymentPostprocessing = 0;
 		};
 /* End PBXResourcesBuildPhase section */
+
+/* Begin PBXShellScriptBuildPhase section */
+		AA0000000000000000000016 /* Embed FFmpeg */ = {
+			isa = PBXShellScriptBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			inputFileListPaths = (
+			);
+			inputPaths = (
+				"$(SRCROOT)/Vendor/bin/ffmpeg",
+			);
+			name = "Embed FFmpeg";
+			outputFileListPaths = (
+			);
+			outputPaths = (
+				"$(TARGET_BUILD_DIR)/$(CONTENTS_FOLDER_PATH)/Helpers/ffmpeg",
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+			shellPath = /bin/sh;
+			shellScript = "set -e\nSRC=\"${SRCROOT}/Vendor/bin/ffmpeg\"\nDEST=\"${TARGET_BUILD_DIR}/${CONTENTS_FOLDER_PATH}/Helpers\"\nif [ ! -f \"$SRC\" ]; then\n  echo \"warning: Vendor/bin/ffmpeg is missing. Run scripts/build-ffmpeg.sh for audio/video features.\"\n  exit 0\nfi\nmkdir -p \"$DEST\"\ncp -f \"$SRC\" \"$DEST/ffmpeg\"\nIDENTITY=\"${EXPANDED_CODE_SIGN_IDENTITY:--}\"\nif [ \"$CONFIGURATION\" = \"Release\" ]; then TS=\"--timestamp\"; else TS=\"--timestamp=none\"; fi\ncodesign --force --options runtime $TS --sign \"$IDENTITY\" \"$DEST/ffmpeg\"\n";
+		};
+/* End PBXShellScriptBuildPhase section */
 
 /* Begin PBXSourcesBuildPhase section */
 		AA0000000000000000000007 /* Sources */ = {
