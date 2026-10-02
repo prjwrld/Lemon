@@ -25,7 +25,7 @@ final class WheelModel {
         let bytes = files.reduce(Int64(0)) { total, url in
             total + Int64((try? url.resourceValues(forKeys: [.fileSizeKey]).fileSize) ?? 0)
         }
-        return ByteCountFormatter.string(fromByteCount: bytes, countStyle: .file)
+        return bytes > 0 ? ByteCountFormatter.string(fromByteCount: bytes, countStyle: .file) : ""
     }
 }
 
@@ -42,7 +42,7 @@ struct WheelView: View {
         let geometry = model.geometry
 
         ZStack {
-            GlassEffectContainer(spacing: 2) {
+            GlassEffectContainer(spacing: 0) {
                 ZStack {
                     ForEach(Array(model.choices.enumerated()), id: \.element) { index, choice in
                         slice(choice, at: index, geometry: geometry)
@@ -53,9 +53,11 @@ struct WheelView: View {
             VStack(spacing: 1) {
                 Text(model.centerTitle)
                     .font(.system(size: 13, weight: .bold))
-                Text(model.centerDetail)
-                    .font(.system(size: 10))
-                    .foregroundStyle(.secondary)
+                if !model.centerDetail.isEmpty {
+                    Text(model.centerDetail)
+                        .font(.system(size: 10))
+                        .foregroundStyle(.secondary)
+                }
             }
             .lineLimit(1)
             .frame(width: geometry.holeDiameter - 16)
@@ -73,10 +75,18 @@ struct WheelView: View {
     private func slice(_ choice: ImageFormat, at index: Int, geometry: WheelGeometry) -> some View {
         let isHovered = model.hovered == index
         return Text(choice.label)
-            .font(.system(size: 13, weight: .semibold))
+            .font(.system(size: 13, weight: .bold))
             .foregroundStyle(isHovered ? Color.black : Color.primary)
+            // A soft halo keeps the label readable over busy backgrounds.
+            .shadow(color: isHovered ? .clear : Color(nsColor: .windowBackgroundColor).opacity(0.9), radius: 3)
             .offset(geometry.labelOffset(of: index))
             .frame(width: geometry.diameter, height: geometry.diameter)
+            // Glass tint alone is too faint over dark backgrounds, so add a clear yellow fill.
+            .background {
+                if isHovered {
+                    RingSlice(geometry: geometry, index: index).fill(Color.lemon.opacity(0.85))
+                }
+            }
             .glassEffect(
                 isHovered ? .regular.tint(.lemon).interactive() : .regular.interactive(),
                 in: RingSlice(geometry: geometry, index: index)

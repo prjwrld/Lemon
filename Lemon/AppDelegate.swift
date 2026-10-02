@@ -26,10 +26,14 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         watcher.start()
 
         #if DEBUG
-        // Design helper: run with "-LemonDemoWheel YES" to show the wheel for 8 seconds.
+        // Design helper: run with "-LemonDemoWheel YES" to show the wheel for 8 seconds,
+        // highlighting each slice in turn.
         if UserDefaults.standard.bool(forKey: "LemonDemoWheel"), let screen = NSScreen.main {
             let demoFile = URL(fileURLWithPath: "/System/Library/Desktop Pictures/.thumbnails/demo.jpg")
             _ = wheel.show(files: [demoFile], at: NSPoint(x: screen.frame.midX, y: screen.frame.midY))
+            for (step, slice) in [0, 1, 2, nil].enumerated() {
+                DispatchQueue.main.asyncAfter(deadline: .now() + 1.5 + Double(step) * 1.5) { self.wheel.demoHover(slice) }
+            }
             DispatchQueue.main.asyncAfter(deadline: .now() + 8) { self.wheel.hide() }
         }
         #endif

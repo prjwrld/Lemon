@@ -27,6 +27,11 @@ final class WheelController {
         return true
     }
 
+    #if DEBUG
+    /// Design helper: highlight a slice without dragging.
+    func demoHover(_ index: Int?) { model.hovered = index }
+    #endif
+
     func hide() {
         // A short pause lets a drop that's still arriving finish first.
         DispatchQueue.main.asyncAfter(deadline: .now() + 0.25) { [self] in

@@ -5,7 +5,7 @@ import SwiftUI
 nonisolated struct WheelGeometry: Equatable, Sendable {
     var diameter: CGFloat = 250
     var holeDiameter: CGFloat = 92
-    var gap: CGFloat = 5          // space between slices, in points
+    var gap: CGFloat = 9          // space between slices, in points
     var cornerRadius: CGFloat = 10
     var count: Int
 
