@@ -4,7 +4,8 @@ import UniformTypeIdentifiers
 /// The image formats Lemon can save to. This is the one shared list of
 /// choices: the wheel, the converter and (later) settings all read it.
 nonisolated enum ImageFormat: String, CaseIterable, Identifiable, Sendable {
-    case png, jpg, heic, tiff
+    // Clockwise order on the wheel, starting at the top.
+    case png, jpg, heic, tiff, avif, bmp, gif, pdf
 
     var id: String { rawValue }
     var label: String { rawValue.uppercased() }
@@ -16,11 +17,15 @@ nonisolated enum ImageFormat: String, CaseIterable, Identifiable, Sendable {
         case .jpg: .jpeg
         case .heic: .heic
         case .tiff: .tiff
+        case .avif: UTType("public.avif") ?? .image
+        case .bmp: .bmp
+        case .gif: .gif
+        case .pdf: .pdf
         }
     }
 
     /// Lossy formats get a quality setting.
-    var isLossy: Bool { self == .jpg || self == .heic }
+    var isLossy: Bool { self == .jpg || self == .heic || self == .avif }
 
     /// JPG can't store see-through pixels, so we put them on white.
     var supportsTransparency: Bool { self != .jpg }
