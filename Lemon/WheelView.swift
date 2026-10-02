@@ -84,7 +84,11 @@ struct WheelView: View {
 
     /// A soft diagonal shine across each piece of glass, like light catching its surface.
     private static let sheen = LinearGradient(
-        colors: [.white.opacity(0.18), .white.opacity(0.04), .clear],
+        stops: [
+            .init(color: .white.opacity(0.24), location: 0),
+            .init(color: .white.opacity(0.05), location: 0.4),
+            .init(color: .clear, location: 1),
+        ],
         startPoint: .topLeading, endPoint: .bottomTrailing
     )
 
@@ -102,14 +106,15 @@ struct WheelView: View {
         }
     }
 
-    /// Clear glass gets a hint of frosting underneath to help labels; the others don't need it.
+    /// Clear glass gets a light grey layer underneath, so cards read as grey glass
+    /// (lighter than the ring around them) and labels stay readable. The others don't need it.
     private var cardFrost: Double {
         if reduceTransparency { return 0.22 }
         let style = UserDefaults.standard.string(forKey: "LemonCardGlass") ?? "clear"
-        return style == "clear" ? 0.04 : 0
+        return style == "clear" ? 0.10 : 0
     }
 
-    /// The dark glass disc behind the slices, with its dark middle.
+    /// The see-through glass disc behind the slices.
     private func plate(_ geometry: WheelGeometry) -> some View {
         ZStack {
             dropShadow(geometry)
@@ -119,11 +124,6 @@ struct WheelView: View {
                 .background(Circle().fill(plateDimming(geometry)))
                 .overlay(Circle().strokeBorder(Self.edgeLight, lineWidth: 1.2))
 
-            // The middle is see-through too; only a thin glass ring marks its edge.
-            Circle()
-                .fill(.black.opacity(reduceTransparency ? 0.95 : 0))
-                .overlay(Circle().strokeBorder(.white.opacity(0.16), lineWidth: 1.5))
-                .frame(width: geometry.holeDiameter - 10, height: geometry.holeDiameter - 10)
         }
         .frame(width: geometry.diameter, height: geometry.diameter)
     }
@@ -157,23 +157,32 @@ struct WheelView: View {
         let isHovered = model.hovered == index
         let shape = RingSlice(geometry: geometry, index: index)
         return Text(choice.label)
-            .font(.system(size: 12.5, weight: .heavy))
-            .tracking(0.4)
+            .font(.system(size: 13.5, weight: .bold))
+            .tracking(0.3)
             .foregroundStyle(isHovered ? Color.black.opacity(0.85) : Color.white)
-            .shadow(color: .black.opacity(isHovered ? 0 : 0.4), radius: 2, y: 1)
+            .shadow(color: .black.opacity(isHovered ? 0 : 0.25), radius: 1, y: 0.5)
             .offset(geometry.labelOffset(of: index))
             .frame(width: geometry.diameter, height: geometry.diameter)
             .background(shape.fill(Self.sheen))
+            .overlay(bevel(shape))
             .overlay(shape.stroke(Self.edgeLight, lineWidth: 1))
             .glassEffect(isHovered ? cardGlass.tint(.lemon).interactive() : cardGlass.interactive(), in: shape)
             .background {
                 if isHovered {
                     shape.fill(LinearGradient(colors: [.lemonDeep, .lemon], startPoint: .top, endPoint: .bottom))
                 } else {
-                    // Only a hint of frosting, so the clear glass shows the most refraction.
                     shape.fill(.white.opacity(cardFrost))
                 }
             }
+    }
+
+    /// A soft dark edge inside the bottom of a card, so it looks like a thick piece of glass.
+    private func bevel(_ shape: RingSlice) -> some View {
+        shape
+            .stroke(LinearGradient(colors: [.clear, .black.opacity(0.28)], startPoint: .top, endPoint: .bottom), lineWidth: 4)
+            .blur(radius: 2)
+            .clipShape(shape)
+            .opacity(reduceTransparency ? 0 : 1)
     }
 
     /// The small glass capsule in the middle: file size, or the format under the pointer.
@@ -191,13 +200,12 @@ struct WheelView: View {
             }
         }
         // Two lines ("2 MIXED FILES" + size) use smaller text so the pill keeps its shape.
-        .font(.system(size: isTwoLines ? 8 : 11, weight: .bold))
-        .foregroundStyle(.white)
-        .shadow(color: .black.opacity(0.4), radius: 2, y: 1)
+        .font(.system(size: isTwoLines ? 8 : 11.5, weight: .semibold))
+        .foregroundStyle(.white.opacity(0.8))
         .lineLimit(1)
         .minimumScaleFactor(0.6)
         .padding(.horizontal, 8)
-        // A short, chunky pill with a dark margin around it, as in the reference.
+        // A short, chunky pill with space around it, as in the reference.
         .frame(width: 66, height: 30)
         // Same glass as the slices, so the pill looks like one of them.
         .background(Capsule().fill(Self.sheen))
