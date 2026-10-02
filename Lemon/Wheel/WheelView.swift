@@ -3,7 +3,8 @@ import SwiftUI
 /// What the wheel is currently showing.
 @Observable
 final class WheelModel {
-    var choices: [ImageFormat] = []
+    var choices: [Action] = []
+    var mode = WheelMode.convert
     var files: [URL] = [] {
         didSet { summarizeFiles() }
     }
@@ -17,7 +18,7 @@ final class WheelModel {
 
     var geometry: WheelGeometry { WheelGeometry(count: choices.count) }
 
-    var hoveredChoice: ImageFormat? {
+    var hoveredChoice: Action? {
         hovered.flatMap { choices.indices.contains($0) ? choices[$0] : nil }
     }
 
@@ -47,7 +48,12 @@ extension Color {
 struct WheelView: View {
     let model: WheelModel
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
-    @Environment(\.accessibilityReduceTransparency) private var reduceTransparency
+    @Environment(\.accessibilityReduceTransparency) private var systemReduceTransparency
+
+    /// Solid colours instead of glass: chosen in Settings, or by the Reduce Transparency setting.
+    private var reduceTransparency: Bool {
+        systemReduceTransparency || AppSettings.shared.appearance == .solid
+    }
 
     var body: some View {
         let geometry = model.geometry
@@ -153,12 +159,10 @@ struct WheelView: View {
         )
     }
 
-    private func slice(_ choice: ImageFormat, at index: Int, geometry: WheelGeometry) -> some View {
+    private func slice(_ choice: Action, at index: Int, geometry: WheelGeometry) -> some View {
         let isHovered = model.hovered == index
         let shape = RingSlice(geometry: geometry, index: index)
-        return Text(choice.label)
-            .font(.system(size: 13.5, weight: .bold))
-            .tracking(0.3)
+        return label(for: choice, geometry: geometry)
             .foregroundStyle(isHovered ? Color.black.opacity(0.85) : Color.white)
             .shadow(color: .black.opacity(isHovered ? 0 : 0.25), radius: 1, y: 0.5)
             .offset(geometry.labelOffset(of: index))
@@ -174,6 +178,27 @@ struct WheelView: View {
                     shape.fill(.white.opacity(cardFrost))
                 }
             }
+    }
+
+    /// A format name, or a tool's icon above its name.
+    @ViewBuilder
+    private func label(for choice: Action, geometry: WheelGeometry) -> some View {
+        if let symbol = choice.symbol {
+            VStack(spacing: 4) {
+                Image(systemName: symbol).font(.system(size: 17, weight: .semibold))
+                Text(choice.label).font(.system(size: 9.5, weight: .bold)).tracking(0.3)
+            }
+            .lineLimit(1)
+            .minimumScaleFactor(0.7)
+            .frame(width: min(72, geometry.middleRadius * geometry.step * 0.95))
+        } else {
+            Text(choice.label)
+                .font(.system(size: 13.5, weight: .bold))
+                .tracking(0.3)
+                .lineLimit(1)
+                .minimumScaleFactor(0.75)
+                .frame(width: min(72, geometry.middleRadius * geometry.step * 0.95))
+        }
     }
 
     /// A soft dark edge inside the bottom of a card, so it looks like a thick piece of glass.
@@ -222,7 +247,7 @@ struct WheelView: View {
 
 #Preview {
     let model = WheelModel()
-    model.choices = [.png, .heic, .tiff, .avif, .bmp, .gif, .pdf]
+    model.choices = [.png, .webp, .heic, .tiff, .avif, .bmp, .pdf, .docx].map(Action.convert)
     model.files = [URL(fileURLWithPath: "/tmp/photo.jpg")]
     model.hovered = 0
     model.isOpen = true

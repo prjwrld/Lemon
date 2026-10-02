@@ -1,22 +1,23 @@
 import AppKit
 import SwiftUI
 
-/// Shows and hides the floating wheel, and reports which format was chosen.
+/// Shows and hides the floating wheel, and reports which choice was dropped on.
 final class WheelController {
-    var onChoose: ((_ files: [URL], _ format: ImageFormat) -> Void)?
+    var onChoose: ((_ files: [URL], _ action: Action) -> Void)?
 
     private let model = WheelModel()
-    private lazy var panel = WheelPanel(model: model) { [weak self] files, format in
-        self?.onChoose?(files, format)
+    private lazy var panel = WheelPanel(model: model) { [weak self] files, action in
+        self?.onChoose?(files, action)
         self?.hide()
     }
 
     /// Returns false (and shows nothing) if Lemon has no choices for these files.
-    func show(files: [URL], at screenPoint: NSPoint) -> Bool {
-        let choices = ImageFormat.choices(for: files)
+    func show(files: [URL], at screenPoint: NSPoint, mode: WheelMode) -> Bool {
+        let choices = ActionCatalog.actions(for: files, mode: mode)
         guard !choices.isEmpty else { return false }
 
         model.files = files
+        model.mode = mode
         model.choices = choices
         model.hovered = nil
         model.isOpen = false
@@ -24,6 +25,16 @@ final class WheelController {
         panel.setFrame(frame(centeredOn: screenPoint), display: false)
         panel.orderFrontRegardless()
         DispatchQueue.main.async { self.model.isOpen = true }
+        return true
+    }
+
+    /// Switches between the formats and tools wheels while it's open.
+    func switchMode(to mode: WheelMode) -> Bool {
+        let choices = ActionCatalog.actions(for: model.files, mode: mode)
+        guard !choices.isEmpty else { return false }
+        model.mode = mode
+        model.choices = choices
+        model.hovered = nil
         return true
     }
 
@@ -58,7 +69,7 @@ final class WheelController {
 final class WheelPanel: NSPanel {
     static let size: CGFloat = 330 // bigger than the wheel, to fit its shadow
 
-    init(model: WheelModel, onDrop: @escaping ([URL], ImageFormat) -> Void) {
+    init(model: WheelModel, onDrop: @escaping ([URL], Action) -> Void) {
         super.init(
             contentRect: NSRect(x: 0, y: 0, width: Self.size, height: Self.size),
             styleMask: [.borderless, .nonactivatingPanel],
@@ -93,9 +104,9 @@ final class WheelPanel: NSPanel {
 /// An invisible view that accepts dropped files and tracks which slice is under the pointer.
 final class DropTargetView: NSView {
     private let model: WheelModel
-    private let onDrop: ([URL], ImageFormat) -> Void
+    private let onDrop: ([URL], Action) -> Void
 
-    init(model: WheelModel, onDrop: @escaping ([URL], ImageFormat) -> Void) {
+    init(model: WheelModel, onDrop: @escaping ([URL], Action) -> Void) {
         self.model = model
         self.onDrop = onDrop
         super.init(frame: .zero)

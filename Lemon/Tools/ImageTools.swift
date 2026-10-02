@@ -3,6 +3,7 @@ import CoreImage
 import CoreImage.CIFilterBuiltins
 import ImageIO
 import PDFKit
+import UniformTypeIdentifiers
 import Vision
 
 /// The picture tools.
