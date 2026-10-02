@@ -111,7 +111,7 @@ struct WheelView: View {
     private var cardFrost: Double {
         if reduceTransparency { return 0.22 }
         let style = UserDefaults.standard.string(forKey: "LemonCardGlass") ?? "clear"
-        return style == "clear" ? 0.10 : 0
+        return style == "clear" ? 0.05 : 0
     }
 
     /// The see-through glass disc behind the slices.
@@ -148,7 +148,7 @@ struct WheelView: View {
             return RadialGradient(colors: [.black.opacity(0.92)], center: .center, startRadius: 0, endRadius: 1)
         }
         return RadialGradient(
-            colors: [.black.opacity(0.10), .black.opacity(0.04)],
+            colors: [.black.opacity(0.04), .black.opacity(0.01)],
             center: .center, startRadius: 0, endRadius: geometry.diameter / 2
         )
     }
@@ -179,7 +179,7 @@ struct WheelView: View {
     /// A soft dark edge inside the bottom of a card, so it looks like a thick piece of glass.
     private func bevel(_ shape: RingSlice) -> some View {
         shape
-            .stroke(LinearGradient(colors: [.clear, .black.opacity(0.28)], startPoint: .top, endPoint: .bottom), lineWidth: 4)
+            .stroke(LinearGradient(colors: [.clear, .black.opacity(0.18)], startPoint: .top, endPoint: .bottom), lineWidth: 4)
             .blur(radius: 2)
             .clipShape(shape)
             .opacity(reduceTransparency ? 0 : 1)
@@ -200,18 +200,19 @@ struct WheelView: View {
             }
         }
         // Two lines ("2 MIXED FILES" + size) use smaller text so the pill keeps its shape.
-        .font(.system(size: isTwoLines ? 8 : 11.5, weight: .semibold))
-        .foregroundStyle(.white.opacity(0.8))
+        .font(.system(size: isTwoLines ? 8.5 : 12, weight: .semibold))
+        .foregroundStyle(.white.opacity(0.85))
         .lineLimit(1)
         .minimumScaleFactor(0.6)
         .padding(.horizontal, 8)
         // A short, chunky pill with space around it, as in the reference.
-        .frame(width: 66, height: 30)
-        // Same glass as the slices, so the pill looks like one of them.
-        .background(Capsule().fill(Self.sheen))
-        .overlay(Capsule().stroke(Self.edgeLight, lineWidth: 1))
-        .glassEffect(cardGlass, in: .capsule)
-        .background(Capsule().fill(.white.opacity(cardFrost)))
+        .frame(width: 70, height: 35)
+        // Pure clear glass and nothing else: what's behind shows through, bent at the edges,
+        // and the glass draws its own thin rim.
+        .glassEffect(reduceTransparency ? .identity : .clear, in: .capsule)
+        .background {
+            if reduceTransparency { Capsule().fill(.white.opacity(0.22)) }
+        }
     }
 
     private var isTwoLines: Bool {
