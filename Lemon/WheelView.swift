@@ -91,6 +91,24 @@ struct WheelView: View {
     /// With Reduce Transparency on, the glass is replaced by solid colours.
     private var clearGlass: Glass { reduceTransparency ? .identity : .clear }
 
+    /// The glass used for the cards (slices and middle pill). Try the others with
+    /// `defaults write com.prajwal.Lemon LemonCardGlass frosted` (or `stained`, `clear`).
+    private var cardGlass: Glass {
+        if reduceTransparency { return .identity }
+        switch UserDefaults.standard.string(forKey: "LemonCardGlass") {
+        case "frosted": return .regular                       // blurs what's behind
+        case "stained": return .clear.tint(.white.opacity(0.22)) // clear glass, lightly coloured
+        default: return .clear                                // most see-through
+        }
+    }
+
+    /// Clear glass gets a hint of frosting underneath to help labels; the others don't need it.
+    private var cardFrost: Double {
+        if reduceTransparency { return 0.22 }
+        let style = UserDefaults.standard.string(forKey: "LemonCardGlass") ?? "clear"
+        return style == "clear" ? 0.04 : 0
+    }
+
     /// The dark glass disc behind the slices, with its dark middle.
     private func plate(_ geometry: WheelGeometry) -> some View {
         ZStack {
@@ -147,13 +165,13 @@ struct WheelView: View {
             .frame(width: geometry.diameter, height: geometry.diameter)
             .background(shape.fill(Self.sheen))
             .overlay(shape.stroke(Self.edgeLight, lineWidth: 1))
-            .glassEffect(isHovered ? clearGlass.tint(.lemon).interactive() : clearGlass.interactive(), in: shape)
+            .glassEffect(isHovered ? cardGlass.tint(.lemon).interactive() : cardGlass.interactive(), in: shape)
             .background {
                 if isHovered {
                     shape.fill(LinearGradient(colors: [.lemonDeep, .lemon], startPoint: .top, endPoint: .bottom))
                 } else {
                     // Only a hint of frosting, so the clear glass shows the most refraction.
-                    shape.fill(.white.opacity(reduceTransparency ? 0.22 : 0.04))
+                    shape.fill(.white.opacity(cardFrost))
                 }
             }
     }
@@ -184,8 +202,8 @@ struct WheelView: View {
         // Same glass as the slices, so the pill looks like one of them.
         .background(Capsule().fill(Self.sheen))
         .overlay(Capsule().stroke(Self.edgeLight, lineWidth: 1))
-        .glassEffect(clearGlass, in: .capsule)
-        .background(Capsule().fill(.white.opacity(reduceTransparency ? 0.22 : 0.04)))
+        .glassEffect(cardGlass, in: .capsule)
+        .background(Capsule().fill(.white.opacity(cardFrost)))
     }
 
     private var isTwoLines: Bool {
