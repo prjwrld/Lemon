@@ -28,6 +28,9 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         watcher.onDragEnded = { [weak self] in
             self?.wheel.hide()
         }
+        watcher.onKeysReleased = { [weak self] in
+            self?.wheel.hide(after: 0)
+        }
         wheel.onChoose = { [weak self] files, action in
             self?.choose(action, files: files)
         }

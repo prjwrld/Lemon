@@ -7,7 +7,8 @@ import AppKit
 /// timer. While the button is held, the timer checks: are the right keys held,
 /// has a new drag started (the shared "drag" pasteboard changed), and does that drag
 /// contain files? If yes, we ask for the wheel. Watching mouse clicks this way needs
-/// no special permission. Pressing or releasing keys mid-drag switches the wheel.
+/// no special permission. The wheel is open only while the keys are held: changing
+/// the keys mid-drag switches wheels, and letting go of them closes it.
 final class DragWatcher {
     /// Called to show the wheel. Return true if it was shown.
     var onDrag: ((_ files: [URL], _ screenPoint: NSPoint, _ mode: WheelMode) -> Bool)?
@@ -16,6 +17,8 @@ final class DragWatcher {
     var onModeChange: ((WheelMode) -> Bool)?
     /// Called when the mouse button is released after the wheel was shown.
     var onDragEnded: (() -> Void)?
+    /// Called when the keys are let go mid-drag: the wheel closes. Holding them again reopens it.
+    var onKeysReleased: (() -> Void)?
 
     private enum Phase {
         case idle
@@ -26,6 +29,10 @@ final class DragWatcher {
     private var phase = Phase.idle
     /// Modes already tried for this drag that had nothing to offer.
     private var emptyModes: Set<WheelMode> = []
+    /// When the keys were let go while the wheel was open. A very short grace period
+    /// ignores keys that flicker for a moment, e.g. while changing from one combination to the other.
+    private var keysReleasedAt: TimeInterval?
+    private static let releaseGrace: TimeInterval = 0.05
     private var monitors: [Any] = []
     private var timer: Timer?
     private let dragPasteboard = NSPasteboard(name: .drag)
@@ -92,7 +99,22 @@ final class DragWatcher {
         case .idle:
             return
         case .wheelShown(let current):
-            if let mode = requestedMode, mode != current, !emptyModes.contains(mode) {
+            guard let mode = requestedMode else {
+                // Keys let go: close the wheel, but keep watching this drag so holding them again reopens it.
+                let now = ProcessInfo.processInfo.systemUptime
+                if let releasedAt = keysReleasedAt {
+                    if now - releasedAt >= Self.releaseGrace {
+                        keysReleasedAt = nil
+                        phase = .watching(changeCountAtMouseDown: -1)
+                        onKeysReleased?()
+                    }
+                } else {
+                    keysReleasedAt = now
+                }
+                return
+            }
+            keysReleasedAt = nil
+            if mode != current, !emptyModes.contains(mode) {
                 if onModeChange?(mode) == true { phase = .wheelShown(mode) } else { emptyModes.insert(mode) }
             }
         case .watching(let startCount):
@@ -118,5 +140,6 @@ final class DragWatcher {
             onDragEnded?()
         }
         phase = .idle
+        keysReleasedAt = nil
     }
 }

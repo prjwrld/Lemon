@@ -9,6 +9,7 @@
 Start dragging files in Finder (or any app), then hold **Shift**. A glass wheel appears under the pointer.
 Drop the files on a format and Lemon saves converted copies next to the originals.
 Hold **Option + Shift** instead for the tools wheel: crop, compress, trim, redact and more.
+Keep holding the keys until you drop; let go of them and the wheel closes.
 
 Lemon never changes or replaces your files. Every result is a new copy; if a name is taken it adds a
 number (`photo 2.png`). Everything happens on your Mac: Lemon never goes online and collects nothing.

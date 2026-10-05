@@ -45,10 +45,54 @@ extension Color {
 /// - the plate: clear glass over a dark layer (you see the desktop through it, bent at the rim)
 /// - the slices: clear, interactive glass over a light layer, in one container
 /// - the middle: a dark well with a small regular-glass capsule
+///
+/// Opening: the wheel grows out of the pointer and untwists into place, like a lens opening.
+/// Closing: the same in reverse, quickly and without a wobble; it only vanishes at the very end.
+/// With Reduce Motion it simply appears and disappears.
 struct WheelView: View {
     let model: WheelModel
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
+
+    var body: some View {
+        WheelDrawing(model: model, openness: model.isOpen || reduceMotion ? 1 : 0)
+            .animation(motionAnimation, value: model.isOpen)
+            .animation(visibilityAnimation) { wheel in
+                wheel.opacity(model.isOpen ? 1 : 0)
+            }
+            // Hover changes are instant, as they should feel immediate.
+            .animation(nil, value: model.hovered)
+    }
+
+    /// How long the closing animation takes; the window is removed after it.
+    static let closeDuration: TimeInterval = 0.24
+
+    private var motionAnimation: Animation {
+        model.isOpen
+            ? .spring(response: 0.34, dampingFraction: 0.8)   // a little life when opening
+            : .spring(response: 0.2, dampingFraction: 1)      // crisp, no bounce when closing
+    }
+
+    private var visibilityAnimation: Animation {
+        if reduceMotion { return .easeInOut(duration: 0.12) }
+        return model.isOpen
+            ? .easeOut(duration: 0.08)                        // solid almost at once, so it reads as growing
+            : .easeIn(duration: 0.1).delay(0.11)              // shrink first, vanish last
+    }
+}
+
+/// Draws the wheel at any point of its opening animation (`openness` 0 = closed, 1 = open).
+///
+/// Liquid Glass ignores scale and rotation effects (the glass would stay full size while the
+/// labels shrink), so instead the wheel's real shapes are rebuilt smaller and turned for each frame.
+private struct WheelDrawing: View, Animatable {
+    let model: WheelModel
+    var openness: Double
     @Environment(\.accessibilityReduceTransparency) private var systemReduceTransparency
+
+    var animatableData: Double {
+        get { openness }
+        set { openness = newValue }
+    }
 
     /// Solid colours instead of glass: chosen in Settings, or by the Reduce Transparency setting.
     private var reduceTransparency: Bool {
@@ -56,7 +100,9 @@ struct WheelView: View {
     }
 
     var body: some View {
-        let geometry = model.geometry
+        let full = model.geometry
+        let scale = 0.5 + 0.5 * openness
+        let geometry = full.scaled(by: scale, twist: (1 - openness) * -10 * .pi / 180)
 
         ZStack {
             plate(geometry)
@@ -65,21 +111,16 @@ struct WheelView: View {
             GlassEffectContainer(spacing: 0) {
                 ZStack {
                     ForEach(Array(model.choices.enumerated()), id: \.element) { index, choice in
-                        slice(choice, at: index, geometry: geometry)
+                        slice(choice, at: index, geometry: geometry, full: full, scale: scale)
                     }
                 }
             }
 
-            centerLabel
+            centerLabel(scale: scale)
         }
-        .frame(width: geometry.diameter, height: geometry.diameter)
+        .frame(width: full.diameter, height: full.diameter)
         // The wheel always uses the dark glass look, like a HUD.
         .environment(\.colorScheme, .dark)
-        .scaleEffect(model.isOpen || reduceMotion ? 1 : 0.86)
-        .opacity(model.isOpen ? 1 : 0)
-        .animation(reduceMotion ? .easeOut(duration: 0.12) : .spring(duration: 0.3, bounce: 0.22), value: model.isOpen)
-        // Hover changes are instant, as they should feel immediate.
-        .animation(nil, value: model.hovered)
     }
 
     /// A thin highlight along glass edges, brighter at the top as if lit from above.
@@ -159,12 +200,15 @@ struct WheelView: View {
         )
     }
 
-    private func slice(_ choice: Action, at index: Int, geometry: WheelGeometry) -> some View {
+    /// `geometry` is the wheel at its current animated size; labels are laid out at full size
+    /// and then scaled (text has no glass, so scaling it is fine).
+    private func slice(_ choice: Action, at index: Int, geometry: WheelGeometry, full: WheelGeometry, scale: CGFloat) -> some View {
         let isHovered = model.hovered == index
         let shape = RingSlice(geometry: geometry, index: index)
-        return label(for: choice, geometry: geometry)
+        return label(for: choice, geometry: full)
             .foregroundStyle(isHovered ? Color.black.opacity(0.85) : Color.white)
             .shadow(color: .black.opacity(isHovered ? 0 : 0.25), radius: 1, y: 0.5)
+            .scaleEffect(scale)
             .offset(geometry.labelOffset(of: index))
             .frame(width: geometry.diameter, height: geometry.diameter)
             .background(shape.fill(Self.sheen))
@@ -211,7 +255,7 @@ struct WheelView: View {
     }
 
     /// The small glass capsule in the middle: file size, or the format under the pointer.
-    private var centerLabel: some View {
+    private func centerLabel(scale: CGFloat) -> some View {
         VStack(spacing: 1) {
             if let choice = model.hoveredChoice {
                 Text(choice.label)
@@ -232,6 +276,9 @@ struct WheelView: View {
         .padding(.horizontal, 8)
         // A short, chunky pill with space around it, as in the reference.
         .frame(width: 70, height: 35)
+        // Text is scaled; the glass gets a truly smaller frame (glass ignores scale effects).
+        .scaleEffect(scale)
+        .frame(width: 70 * scale, height: 35 * scale)
         // Pure clear glass and nothing else: what's behind shows through, bent at the edges,
         // and the glass draws its own thin rim.
         .glassEffect(reduceTransparency ? .identity : .clear, in: .capsule)

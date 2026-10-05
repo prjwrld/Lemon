@@ -46,15 +46,20 @@ final class WheelController {
     func demoHover(_ index: Int?) { model.hovered = index }
     #endif
 
-    func hide() {
-        // A short pause lets a drop that's still arriving finish first. If a new wheel
-        // opens during the pause (a quick second drag), leave that one alone.
+    /// Closes the wheel with its closing animation, then removes the window.
+    /// - Parameter delay: after the mouse is released, a short pause lets a drop that's still
+    ///   arriving finish first. Letting go of the keys closes at once (delay 0).
+    /// If a new wheel opens meanwhile (a quick second drag, or the keys held again), it's left alone.
+    func hide(after delay: TimeInterval = 0.25) {
         let current = generation
-        DispatchQueue.main.asyncAfter(deadline: .now() + 0.25) { [self] in
-            guard generation == current else { return }
-            model.isOpen = false
+        DispatchQueue.main.asyncAfter(deadline: .now() + delay) { [self] in
+            guard generation == current, model.isOpen else { return }
+            model.isOpen = false   // the view animates this; drops are refused from now on
             model.hovered = nil
-            panel.orderOut(nil)
+            DispatchQueue.main.asyncAfter(deadline: .now() + WheelView.closeDuration) { [self] in
+                guard generation == current else { return }
+                panel.orderOut(nil)
+            }
         }
     }
 
@@ -137,7 +142,7 @@ final class DropTargetView: NSView {
     }
 
     override func performDragOperation(_ sender: any NSDraggingInfo) -> Bool {
-        guard let choice = model.hoveredChoice else { return false }
+        guard model.isOpen, let choice = model.hoveredChoice else { return false }
         let files = sender.draggingPasteboard.readObjects(
             forClasses: [NSURL.self],
             options: [.urlReadingFileURLsOnly: true]
@@ -148,6 +153,11 @@ final class DropTargetView: NSView {
     }
 
     private func track(_ sender: any NSDraggingInfo) -> NSDragOperation {
+        // While the wheel is closing it no longer takes drops.
+        guard model.isOpen else {
+            model.hovered = nil
+            return []
+        }
         let location = convert(sender.draggingLocation, from: nil)
         let fromCenter = CGPoint(x: location.x - bounds.midX, y: location.y - bounds.midY)
         let slice = model.geometry.slice(at: fromCenter)
