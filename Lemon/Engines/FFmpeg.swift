@@ -55,15 +55,25 @@ nonisolated enum FFmpeg {
 
     static func parse(_ text: String) -> Info {
         var info = Info()
+        var inFirstVideoStream = false
+        var quarterTurned = false
         for rawLine in text.split(separator: "\n") {
             let line = rawLine.trimmingCharacters(in: .whitespaces)
             if line.hasPrefix("Duration:"), let value = line.split(separator: ",").first?
                 .replacingOccurrences(of: "Duration:", with: "").trimmingCharacters(in: .whitespaces) {
                 info.duration = seconds(from: value)
             }
+            // Phone videos filmed upright are stored sideways with a rotation note. FFmpeg turns the
+            // frames upright before filtering, so the size we report must be the upright size.
+            if inFirstVideoStream, let match = line.firstMatch(of: #/(?i)rotation of (-?[\d.]+) degrees/#),
+               let degrees = Double(match.1) {
+                quarterTurned = Int(abs(degrees).rounded()) % 180 == 90
+            }
             guard line.hasPrefix("Stream #") else { continue }
+            inFirstVideoStream = false
             if line.contains("Video:"), !line.contains("attached pic"), !info.hasVideo {
                 info.hasVideo = true
+                inFirstVideoStream = true
                 if let match = line.firstMatch(of: #/, (\d{2,5})x(\d{2,5})/#) {
                     info.width = Int(match.1); info.height = Int(match.2)
                 }
@@ -75,6 +85,7 @@ nonisolated enum FFmpeg {
                 else if let match = line.firstMatch(of: #/(\d+) channels/#) { info.audioChannels = Int(match.1) }
             }
         }
+        if quarterTurned { (info.width, info.height) = (info.height, info.width) }
         return info
     }
 

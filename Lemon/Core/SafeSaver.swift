@@ -43,6 +43,16 @@ nonisolated enum SafeSaver {
         return base
     }
 
+    /// Deletes temporary files Lemon left behind if it quit mid-job (work folders and
+    /// editor previews). Called at launch, when nothing is running yet.
+    static func removeLeftovers() {
+        let temp = FileManager.default.temporaryDirectory
+        let names = (try? FileManager.default.contentsOfDirectory(atPath: temp.path)) ?? []
+        for name in names where name.hasPrefix("Lemon-") || name.hasPrefix("lemon-") {
+            try? FileManager.default.removeItem(at: temp.appendingPathComponent(name))
+        }
+    }
+
     /// A fresh, empty temporary folder for one job.
     static func makeWorkFolder() throws -> URL {
         let folder = FileManager.default.temporaryDirectory

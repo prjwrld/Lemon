@@ -18,6 +18,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     #endif
 
     func applicationDidFinishLaunching(_ notification: Notification) {
+        DispatchQueue.global(qos: .utility).async { SafeSaver.removeLeftovers() }
         watcher.onDrag = { [weak self] files, point, mode in
             self?.wheel.show(files: files, at: point, mode: mode) ?? false
         }

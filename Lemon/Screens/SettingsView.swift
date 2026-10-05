@@ -154,13 +154,11 @@ private struct FormatsTab: View {
         Section("\(format.label) defaults") {
             switch format.kind {
             case .image:
-                if ImageEngine.isLossy(format) { qualityPicker(format) }
-                Toggle("Keep photo details (camera, location, date)", isOn: $settings.conversion.keepMetadata)
-                Picker("Size", selection: $settings.conversion.maxImageSize) {
-                    Text("Original").tag(Int?.none)
-                    ForEach([3840, 2560, 1920, 1280], id: \.self) { Text("Up to \($0) px").tag(Int?.some($0)) }
+                if ImageEngine.isLossy(format) {
+                    qualityPicker(format)
+                } else {
+                    Text("\(format.label) is lossless: nothing to set just for it.").foregroundStyle(.secondary)
                 }
-                if format == .jpg || format == .png { dpiPicker }
             case .video where format == .gif:
                 Stepper("Frames per second: \(settings.conversion.gifFPS)", value: $settings.conversion.gifFPS, in: 5...30)
                 Picker("Width", selection: $settings.conversion.gifWidth) {
@@ -186,6 +184,21 @@ private struct FormatsTab: View {
                 Text("Pictures keep their size; text uses Letter or A4 pages for your region.").foregroundStyle(.secondary)
             default:
                 Text("No options for \(format.label).").foregroundStyle(.secondary)
+            }
+        }
+        // These apply to every picture Lemon makes, so they're kept apart from the per-format choices.
+        if format.kind == .image {
+            Section {
+                Toggle("Keep photo details (camera, location, date)", isOn: $settings.conversion.keepMetadata)
+                Picker("Size", selection: $settings.conversion.maxImageSize) {
+                    Text("Original").tag(Int?.none)
+                    ForEach([3840, 2560, 1920, 1280], id: \.self) { Text("Up to \($0) px").tag(Int?.some($0)) }
+                }
+                if format == .jpg || format == .png { dpiPicker }
+            } header: {
+                Text("All picture formats")
+            } footer: {
+                Text("These settings apply to every picture format.").font(.caption).foregroundStyle(.secondary)
             }
         }
     }

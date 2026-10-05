@@ -190,6 +190,21 @@ await run(.tool(.metadata), [pdf], .metadata(MetadataEdit(title: "Notes")), name
 await run(.tool(.extract), [zip], name: "extract zip")
 await run(.tool(.extract), [tgz], name: "extract tar.gz")
 
+// MARK: - Portrait phone video (stored sideways with a rotation note)
+print("\nPortrait video")
+let portrait = samples.appendingPathComponent("portrait.mp4")
+try await ffmpeg(["-display_rotation", "90", "-i", video.path, "-c", "copy", portrait.path])
+let portraitInfo = try await FFmpeg.probe(portrait)
+check(portraitInfo.width == 360 && portraitInfo.height == 640, "portrait size read upright",
+      "\(portraitInfo.width ?? 0)×\(portraitInfo.height ?? 0)")
+if let cropped = try? await Processor.run(.tool(.crop), files: [portrait], options: .crop(CGRect(x: 0.5, y: 0, width: 0.5, height: 1)),
+                                          settings: settings, context: quiet).first,
+   let info = try? await FFmpeg.probe(cropped) {
+    check(info.width == 180 && info.height == 640, "portrait crop (right half)", "\(info.width ?? 0)×\(info.height ?? 0)")
+} else {
+    check(false, "portrait crop (right half)", "failed")
+}
+
 // MARK: - Originals untouched
 print("\nOriginals")
 for (url, data) in originals {

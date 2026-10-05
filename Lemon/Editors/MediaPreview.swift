@@ -1,5 +1,7 @@
 import AVFoundation
 import AppKit
+import ImageIO
+import PDFKit
 import SwiftUI
 
 /// Preview material for the editors: still frames, playable copies, thumbnails, waveforms.
@@ -29,6 +31,26 @@ nonisolated enum MediaPreview {
         }
     }
 
+    /// The file's real size in pixels, upright (previews are smaller, so editors use this for numbers).
+    static func pixelSize(of file: URL) async -> CGSize? {
+        switch FileKind(file: file) {
+        case .image:
+            guard let source = CGImageSourceCreateWithURL(file as CFURL, nil),
+                  let props = CGImageSourceCopyPropertiesAtIndex(source, 0, nil) as? [CFString: Any],
+                  let width = props[kCGImagePropertyPixelWidth] as? Int,
+                  let height = props[kCGImagePropertyPixelHeight] as? Int
+            else { return nil }
+            // Orientations 5–8 are turned a quarter, so width and height swap when shown upright.
+            let turned = (props[kCGImagePropertyOrientation] as? Int ?? 1) >= 5
+            return turned ? CGSize(width: height, height: width) : CGSize(width: width, height: height)
+        case .video, .gif:
+            guard let info = try? await FFmpeg.probe(file), let width = info.width, let height = info.height else { return nil }
+            return CGSize(width: width, height: height)
+        default:
+            return nil   // SVGs have no fixed pixel size; the preview's size is used
+        }
+    }
+
     /// A file AVPlayer can play: the original, or a quick MP4/M4A copy for other formats.
     static func playable(_ file: URL) async throws -> URL {
         let asset = AVURLAsset(url: file)
@@ -45,8 +67,32 @@ nonisolated enum MediaPreview {
                      "-q:v", "50", "-allow_sw", "1", "-pix_fmt", "yuv420p"]
         }
         args += info.hasAudio ? ["-c:a", "aac_at", "-b:a", "128k"] : ["-an"]
-        try await FFmpeg.run(args + [out.path], duration: info.duration, context: nil)
+        do {
+            try await FFmpeg.run(args + [out.path], duration: info.duration, context: nil)
+        } catch {
+            try? FileManager.default.removeItem(at: out) // don't leave a half-made copy behind
+            throw error
+        }
         return out
+    }
+
+    /// Small pictures of a PDF's pages, drawn in the background and delivered one by one,
+    /// so long documents don't freeze the window.
+    static func pageThumbnails(of file: URL) -> AsyncStream<(index: Int, image: CGImage)> {
+        AsyncStream { continuation in
+            let work = Task.detached(priority: .userInitiated) {
+                if let document = PDFDocument(url: file) {
+                    for index in 0..<document.pageCount {
+                        if Task.isCancelled { break }
+                        guard let page = document.page(at: index)?.pageRef,
+                              let image = try? DocumentEngine.render(page, dpi: 30) else { continue }
+                        continuation.yield((index, image))
+                    }
+                }
+                continuation.finish()
+            }
+            continuation.onTermination = { _ in work.cancel() }
+        }
     }
 
     /// Evenly spaced small frames for the trim strip.

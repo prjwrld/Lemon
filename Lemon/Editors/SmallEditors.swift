@@ -131,10 +131,8 @@ struct PagesEditor: View {
         .task {
             guard let document = try? PDFTools.open(file) else { return }
             pages = (0..<document.pageCount).map { PageEdit(sourceIndex: $0) }
-            for index in 0..<document.pageCount {
-                guard let page = document.page(at: index)?.pageRef,
-                      let image = try? DocumentEngine.render(page, dpi: 30) else { continue }
-                thumbnails[index] = image
+            for await page in MediaPreview.pageThumbnails(of: file) {
+                thumbnails[page.index] = page.image
             }
         }
     }

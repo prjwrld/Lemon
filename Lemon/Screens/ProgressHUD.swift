@@ -23,10 +23,14 @@ final class ProgressHUD {
 
     func start() { watch() }
 
-    /// Re-runs whenever the job list changes (Observation tracking).
+    /// Re-runs whenever a job is added or removed, or one finishes or gets a message,
+    /// since those change the panel's height (Observation tracking).
     private func watch() {
         withObservationTracking {
-            _ = center.jobs.count
+            for job in center.jobs {
+                _ = job.state
+                _ = job.message
+            }
         } onChange: { [weak self] in
             DispatchQueue.main.async {
                 self?.update()
@@ -85,7 +89,7 @@ private struct JobRow: View {
                 case .finished(let urls):
                     Text(job.message ?? summary(urls)).font(.caption).foregroundStyle(.secondary).lineLimit(3)
                 case .failed(let message):
-                    Text(message).font(.caption).foregroundStyle(.secondary).lineLimit(4).textSelection(.enabled)
+                    Text(message).font(.caption).foregroundStyle(.secondary).lineLimit(8).textSelection(.enabled)
                 case .cancelled:
                     Text("Cancelled").font(.caption).foregroundStyle(.secondary)
                 }

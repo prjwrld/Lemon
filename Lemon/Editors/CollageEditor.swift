@@ -28,6 +28,8 @@ struct CollageEditor: View {
         .task {
             images = await Task.detached { files.compactMap { try? ImageEngine.load($0, maxPixels: 700) } }.value
             layout.columns = Int(ceil(Double(files.count).squareRoot()))
+            // Draw now: if the column count didn't change, the layout task won't run again.
+            render()
         }
         .task(id: layout) { render() }
         .onChange(of: background) {

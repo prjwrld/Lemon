@@ -27,7 +27,15 @@ struct CropEditor: View {
     @State private var aspect = Aspect.free
     @State private var dragStart: CGRect?
 
-    private var pixelSize: CGSize { CGSize(width: image?.width ?? 1, height: image?.height ?? 1) }
+    /// The file's real size; the preview image is often scaled down.
+    @State private var realSize: CGSize?
+
+    private var pixelSize: CGSize { realSize ?? CGSize(width: image?.width ?? 1, height: image?.height ?? 1) }
+
+    /// True while the crop still covers the whole picture (cropping would change nothing).
+    private var isWholePicture: Bool {
+        rect.width * pixelSize.width > pixelSize.width - 1 && rect.height * pixelSize.height > pixelSize.height - 1
+    }
 
     var body: some View {
         GlassShell(title: "Crop", subtitle: subtitle, onClose: onCancel) {
@@ -48,11 +56,14 @@ struct CropEditor: View {
                 Text("px").foregroundStyle(.secondary)
             }
         } footer: {
-            EditorFooter(canApply: image != nil, onCancel: onCancel, onApply: { onApply(.crop(rect)) }) {
+            EditorFooter(canApply: image != nil && !isWholePicture, onCancel: onCancel, onApply: { onApply(.crop(rect)) }) {
                 Button("Reset") { aspect = .free; rect = CGRect(x: 0, y: 0, width: 1, height: 1) }.buttonStyle(.glass)
             }
         }
-        .task { image = await MediaPreview.frame(of: file, at: 0.5) }
+        .task {
+            realSize = await MediaPreview.pixelSize(of: file)
+            image = await MediaPreview.frame(of: file, at: 0.5)
+        }
     }
 
     private var subtitle: String {

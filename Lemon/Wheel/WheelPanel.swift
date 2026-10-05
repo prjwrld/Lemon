@@ -6,6 +6,8 @@ final class WheelController {
     var onChoose: ((_ files: [URL], _ action: Action) -> Void)?
 
     private let model = WheelModel()
+    /// Counts wheels shown, so a late hide() can tell it belongs to an older one.
+    private var generation = 0
     private lazy var panel = WheelPanel(model: model) { [weak self] files, action in
         self?.onChoose?(files, action)
         self?.hide()
@@ -16,6 +18,7 @@ final class WheelController {
         let choices = ActionCatalog.actions(for: files, mode: mode)
         guard !choices.isEmpty else { return false }
 
+        generation += 1
         model.files = files
         model.mode = mode
         model.choices = choices
@@ -44,8 +47,11 @@ final class WheelController {
     #endif
 
     func hide() {
-        // A short pause lets a drop that's still arriving finish first.
+        // A short pause lets a drop that's still arriving finish first. If a new wheel
+        // opens during the pause (a quick second drag), leave that one alone.
+        let current = generation
         DispatchQueue.main.asyncAfter(deadline: .now() + 0.25) { [self] in
+            guard generation == current else { return }
             model.isOpen = false
             model.hovered = nil
             panel.orderOut(nil)

@@ -48,7 +48,7 @@ struct TimelineEditor: View {
 
             HStack(spacing: 10) {
                 Button { model.seek(model.time - 1) } label: { Image(systemName: "gobackward.1") }
-                Button { model.togglePlay(stopAt: mode == .trim ? range.end : nil) } label: {
+                Button { model.togglePlay(within: mode == .trim ? range : nil) } label: {
                     Image(systemName: model.playing ? "pause.fill" : "play.fill").frame(width: 18)
                 }
                 .keyboardShortcut(.space, modifiers: [])
@@ -216,6 +216,9 @@ final class TimelineModel {
     var waveform: [Float] = []
     private var observer: Any?
     private var stopAt: Double?
+    /// A temporary playable copy (for formats AVPlayer can't open), deleted when the editor closes.
+    private var previewCopy: URL?
+    private var stopped = false
 
     func load(_ file: URL) async {
         do {
@@ -223,6 +226,9 @@ final class TimelineModel {
             duration = info.duration ?? 0
             hasVideo = info.hasVideo
             let playable = try await MediaPreview.playable(file)
+            if playable != file { previewCopy = playable }
+            // The editor may have closed while the copy was being made.
+            if stopped || Task.isCancelled { removePreviewCopy(); return }
             let player = AVPlayer(url: playable)
             observer = player.addPeriodicTimeObserver(forInterval: CMTime(value: 1, timescale: 30), queue: .main) { [weak self] t in
                 MainActor.assumeIsolated { self?.tick(t.seconds) }
@@ -244,6 +250,8 @@ final class TimelineModel {
         guard playing else { return }
         time = seconds
         if let stopAt, seconds >= stopAt { player?.pause(); playing = false }
+        // Reached the end of the file: show Play again.
+        if duration > 0, seconds >= duration - 0.05 { playing = false }
     }
 
     func seek(_ seconds: Double) {
@@ -251,23 +259,36 @@ final class TimelineModel {
         player?.seek(to: CMTime(seconds: time, preferredTimescale: 600), toleranceBefore: .zero, toleranceAfter: .zero)
     }
 
-    func togglePlay(stopAt end: Double?) {
+    /// Plays from the playhead. With a range (Trim), playback stays inside it:
+    /// it starts at the range's start when the playhead is outside, and stops at its end.
+    func togglePlay(within range: TimeRange?) {
         guard let player else { return }
         if playing {
             player.pause()
         } else {
-            stopAt = end
-            if let end, time >= end - 0.05 { seek(0) }
+            stopAt = range?.end
+            if let range {
+                if time < range.start || time >= range.end - 0.05 { seek(range.start) }
+            } else if time >= duration - 0.05 {
+                seek(0)
+            }
             player.play()
         }
         playing.toggle()
     }
 
     func stop() {
+        stopped = true
         player?.pause()
         playing = false
         if let observer { player?.removeTimeObserver(observer) }
         observer = nil
+        removePreviewCopy()
+    }
+
+    private func removePreviewCopy() {
+        if let previewCopy { try? FileManager.default.removeItem(at: previewCopy) }
+        previewCopy = nil
     }
 }
 

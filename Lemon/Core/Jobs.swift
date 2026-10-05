@@ -78,10 +78,11 @@ final class JobCenter {
         return job
     }
 
-    /// Finished jobs leave the panel after a few seconds; failures stay until closed.
+    /// Finished jobs leave the panel after a few seconds; failures stay until closed,
+    /// so the message can be read (and copied).
     fileprivate func scheduleCleanup(of job: Job) {
-        let delay: Double = if case .failed = job.state { 12 } else { 5 }
-        DispatchQueue.main.asyncAfter(deadline: .now() + delay) { [weak self] in
+        if case .failed = job.state { return }
+        DispatchQueue.main.asyncAfter(deadline: .now() + 5) { [weak self] in
             self?.remove(job)
         }
     }
