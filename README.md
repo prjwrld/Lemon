@@ -66,7 +66,7 @@ The results are left in `build/engine-tests/` so you can open them.
 
 ### Design helpers (Debug builds)
 
-- `open build/Build/Products/Debug/Lemon.app --args -LemonDemoWheel YES` shows the wheel for 8 seconds.
+- `open build/Build/Products/Debug/Lemon.app --args -LemonDemoWheel YES` shows the wheel for 8 seconds, then opens and closes it once more.
   Add `-LemonDemoMode tools` for the tools wheel, `-LemonDemoFile /path/file` to pick the file type,
   and `-LemonDemoBackdrop /path/image` to put a picture behind it.
 - `--args -LemonDemoEditor crop -LemonDemoFile /path/photo.jpg` opens an editor directly.

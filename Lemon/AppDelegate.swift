@@ -37,6 +37,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         JobCenter.shared.onFinished = { [weak self] _, urls in
             self?.finished(urls)
         }
+        wheel.prepare()
         watcher.start()
         hud.start()
 
@@ -82,7 +83,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     }
 
     #if DEBUG
-    /// Design helper: run with "-LemonDemoWheel YES" to show the wheel for 8 seconds,
+    /// Design helper: run with "-LemonDemoWheel YES" to show the wheel for 8 seconds (then open and close it once more),
     /// highlighting each slice in turn. Add "-LemonDemoMode tools" for the tools wheel,
     /// "-LemonDemoFile /path/file" to choose the file type, and
     /// "-LemonDemoBackdrop /path/to/image" to put a picture behind it, to judge the glass.
@@ -106,7 +107,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             window.level = .floating
             window.orderFrontRegardless()
             demoBackdrop = window
-            DispatchQueue.main.asyncAfter(deadline: .now() + 8.3) { self.demoBackdrop?.orderOut(nil) }
+            DispatchQueue.main.asyncAfter(deadline: .now() + 12) { self.demoBackdrop?.orderOut(nil) }
         }
         let demoFile = URL(fileURLWithPath: defaults.string(forKey: "LemonDemoFile") ?? "/tmp/demo.jpg")
         // "-LemonDemoEditor crop" opens an editor for the demo file instead of the wheel.
@@ -121,6 +122,11 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             DispatchQueue.main.asyncAfter(deadline: .now() + 1.5 + Double(step) * 1.5) { self.wheel.demoHover(slice) }
         }
         DispatchQueue.main.asyncAfter(deadline: .now() + 8) { self.wheel.hide() }
+        // Open and close once more, to check a repeat opening looks the same as the first.
+        DispatchQueue.main.asyncAfter(deadline: .now() + 9.5) {
+            _ = self.wheel.show(files: [demoFile], at: NSPoint(x: screen.frame.midX, y: screen.frame.midY), mode: mode)
+        }
+        DispatchQueue.main.asyncAfter(deadline: .now() + 11) { self.wheel.hide(after: 0) }
     }
     #endif
 }

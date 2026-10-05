@@ -23,12 +23,25 @@ final class WheelController {
         model.mode = mode
         model.choices = choices
         model.hovered = nil
-        model.isOpen = false
+        model.isOpen = true
 
-        panel.setFrame(frame(centeredOn: screenPoint), display: false)
+        panel.setFrame(frame(centeredOn: screenPoint), display: true)
+        if !panel.isVisible { panel.collapse() }   // never flash at full size
         panel.orderFrontRegardless()
-        DispatchQueue.main.async { self.model.isOpen = true }
+        panel.animateOpen()
         return true
+    }
+
+    /// Sets the wheel's window up once, invisibly, at launch. Its first-ever display does
+    /// layout work that would otherwise disturb the first opening animation.
+    func prepare() {
+        model.choices = ActionCatalog.outputs(for: .image).map(Action.convert)
+        panel.alphaValue = 0
+        panel.orderFrontRegardless()
+        panel.displayIfNeeded()
+        panel.orderOut(nil)
+        panel.alphaValue = 1
+        panel.collapse()
     }
 
     /// Switches between the formats and tools wheels while it's open.
@@ -54,9 +67,9 @@ final class WheelController {
         let current = generation
         DispatchQueue.main.asyncAfter(deadline: .now() + delay) { [self] in
             guard generation == current, model.isOpen else { return }
-            model.isOpen = false   // the view animates this; drops are refused from now on
+            model.isOpen = false   // drops are refused from now on
             model.hovered = nil
-            DispatchQueue.main.asyncAfter(deadline: .now() + WheelView.closeDuration) { [self] in
+            panel.animateClose { [self] in
                 guard generation == current else { return }
                 panel.orderOut(nil)
             }
@@ -80,7 +93,12 @@ final class WheelController {
 final class WheelPanel: NSPanel {
     static let size: CGFloat = 330 // bigger than the wheel, to fit its shadow
 
+    /// The SwiftUI wheel. Opening and closing move its layer with Core Animation, which runs
+    /// in the system's renderer at the display's full frame rate, not in Lemon's own drawing.
+    private let wheel: NSHostingView<WheelView>
+
     init(model: WheelModel, onDrop: @escaping ([URL], Action) -> Void) {
+        wheel = NSHostingView(rootView: WheelView(model: model))
         super.init(
             contentRect: NSRect(x: 0, y: 0, width: Self.size, height: Self.size),
             styleMask: [.borderless, .nonactivatingPanel],
@@ -96,9 +114,9 @@ final class WheelPanel: NSPanel {
         collectionBehavior = [.canJoinAllSpaces, .fullScreenAuxiliary, .stationary, .ignoresCycle]
 
         let container = NSView(frame: NSRect(x: 0, y: 0, width: Self.size, height: Self.size))
-        let wheel = NSHostingView(rootView: WheelView(model: model))
         wheel.frame = container.bounds
         wheel.autoresizingMask = [.width, .height]
+        wheel.wantsLayer = true
         // The drop target sits on top of the wheel, so it receives every drag.
         let dropTarget = DropTargetView(model: model, onDrop: onDrop)
         dropTarget.frame = container.bounds
@@ -110,6 +128,87 @@ final class WheelPanel: NSPanel {
 
     override var canBecomeKey: Bool { false }
     override var canBecomeMain: Bool { false }
+
+    // MARK: Opening and closing
+    //
+    // Pure motion, no fading: the wheel grows out of the pointer,
+    // settling with a soft spring; closing shrinks it smoothly back into the pointer.
+    // Both are interruptible: holding the keys again mid-close reverses from where it is.
+    // With Reduce Motion it simply appears and disappears.
+    //
+    // The scaling happens around the wheel's centre (the pointer). AppKit owns the layer's
+    // anchor point and resets it during layout, so instead of moving the anchor, the centre
+    // is built into the transform itself: move the centre to the anchor, scale, move it back.
+
+    /// Closed size: a point under the pointer (exactly 0 can't be reversed by Core Animation).
+    private static let closedScale: CGFloat = 0.001
+
+    /// Puts the wheel in its closed state (a point under the pointer) without animating.
+    func collapse() {
+        guard let layer = wheel.layer else { return }
+        CATransaction.begin()
+        CATransaction.setDisableActions(true)
+        layer.removeAllAnimations()
+        layer.transform = NSWorkspace.shared.accessibilityDisplayShouldReduceMotion
+            ? CATransform3DIdentity : Self.scale(Self.closedScale, aroundCentreOf: layer)
+        CATransaction.commit()
+    }
+
+    func animateOpen() {
+        guard let layer = wheel.layer else { return }
+        // Start from wherever the wheel is now (closed, or part-way through closing), so it never jumps.
+        let from = (layer.presentation() ?? layer).transform
+
+        CATransaction.begin()
+        CATransaction.setDisableActions(true)
+        layer.removeAllAnimations()
+        layer.transform = CATransform3DIdentity
+        if !NSWorkspace.shared.accessibilityDisplayShouldReduceMotion {
+            layer.add(Self.spring(from: from, to: CATransform3DIdentity, response: 0.36, damping: 0.78), forKey: "open")
+        }
+        CATransaction.commit()
+    }
+
+    func animateClose(completion: @escaping () -> Void) {
+        guard let layer = wheel.layer, !NSWorkspace.shared.accessibilityDisplayShouldReduceMotion else {
+            completion()
+            return
+        }
+        let from = (layer.presentation() ?? layer).transform
+        let closed = Self.scale(Self.closedScale, aroundCentreOf: layer)
+
+        CATransaction.begin()
+        CATransaction.setDisableActions(true)
+        CATransaction.setCompletionBlock(completion)
+        layer.removeAllAnimations()
+        layer.transform = closed
+        // No bounce when closing: it glides into the pointer and eases out to nothing.
+        layer.add(Self.spring(from: from, to: closed, response: 0.3, damping: 1), forKey: "close")
+        CATransaction.commit()
+    }
+
+    /// A transform that scales the layer around its centre, wherever AppKit put its anchor point.
+    private static func scale(_ factor: CGFloat, aroundCentreOf layer: CALayer) -> CATransform3D {
+        let dx = layer.bounds.width * (0.5 - layer.anchorPoint.x)
+        let dy = layer.bounds.height * (0.5 - layer.anchorPoint.y)
+        var transform = CATransform3DMakeTranslation(dx, dy, 0)
+        transform = CATransform3DScale(transform, factor, factor, 1)
+        return CATransform3DTranslate(transform, -dx, -dy, 0)
+    }
+
+    /// A spring like SwiftUI's `.spring(response:dampingFraction:)`. Between two pure
+    /// scale-around-a-point transforms, Core Animation's in-between steps stay centred.
+    private static func spring(from: CATransform3D, to: CATransform3D,
+                               response: CGFloat, damping: CGFloat) -> CASpringAnimation {
+        let animation = CASpringAnimation(keyPath: "transform")
+        animation.fromValue = NSValue(caTransform3D: from)
+        animation.toValue = NSValue(caTransform3D: to)
+        animation.mass = 1
+        animation.stiffness = pow(2 * .pi / response, 2)
+        animation.damping = 4 * .pi * damping / response
+        animation.duration = min(animation.settlingDuration, 0.6)
+        return animation
+    }
 }
 
 /// An invisible view that accepts dropped files and tracks which slice is under the pointer.

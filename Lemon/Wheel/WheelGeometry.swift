@@ -10,21 +10,6 @@ nonisolated struct WheelGeometry: Equatable, Sendable {
     var outerCorner: CGFloat = 13
     var innerCorner: CGFloat = 8
     var count: Int
-    /// Extra turn of the whole wheel (radians), used while it opens and closes.
-    var twist: CGFloat = 0
-
-    /// The same wheel, smaller and turned: used to animate opening and closing.
-    func scaled(by scale: CGFloat, twist: CGFloat) -> WheelGeometry {
-        var g = self
-        g.diameter *= scale
-        g.plateMargin *= scale
-        g.holeDiameter *= scale
-        g.gap *= scale
-        g.outerCorner *= scale
-        g.innerCorner *= scale
-        g.twist = twist
-        return g
-    }
 
     var outerRadius: CGFloat { diameter / 2 - plateMargin }
     var innerRadius: CGFloat { holeDiameter / 2 }
@@ -34,7 +19,7 @@ nonisolated struct WheelGeometry: Equatable, Sendable {
     /// The centre angle of a slice. Slice 0 is centred at the top; the rest go clockwise.
     /// (Radians; with y pointing down, clockwise is positive.)
     func centerAngle(of index: Int) -> CGFloat {
-        -.pi / 2 + twist + step * CGFloat(index)
+        -.pi / 2 + step * CGFloat(index)
     }
 
     /// A slice's edges at a given distance from the centre. The gap is trimmed
