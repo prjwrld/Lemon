@@ -19,8 +19,8 @@ number (`photo 2.png`). Everything happens on your Mac: Lemon never goes online 
 | Files | Convert to (Shift) | Tools (Option + Shift) |
 |---|---|---|
 | Pictures (JPG, PNG, HEIC, WebP, AVIF, TIFF, BMP, SVG) | PNG, JPG, WebP, HEIC, TIFF, AVIF, BMP, PDF, Word | Compress, Metadata, Edit Photo, Annotate, Background, Crop, Redact, Read QR; several at once: Create PDF, Collage |
-| Video (MP4, MOV, MKV, WebM, AVI, WMV…) and GIF | MP4, MOV, MKV, WebM, AVI, WMV, GIF, MP3 | Trim, Crop, Speed, Snapshots, Split, Mute, Redact, Compress, Metadata; several: Join |
-| Audio (MP3, M4A, WAV, FLAC, OGG, Opus, AIFF, WMA) | MP3, M4A, WAV, FLAC, OGG, Opus, AIFF, WMA | Trim, Normalize, Mono/Stereo, Visualizer, Bleep, Compress, Metadata; several: Join |
+| Video (MP4, MOV, MKV, WebM, AVI, WMV…) and GIF | MP4, MOV, MKV, WebM, AVI, WMV, GIF, MP3 | Trim, Crop, Speed, Snapshots, Split, Redact, Compress, Metadata, Mute; several: Join |
+| Audio (MP3, M4A, WAV, FLAC, OGG, Opus, AIFF, WMA) | MP3, M4A, WAV, FLAC, OGG, Opus, AIFF, WMA | Trim, Normalize, Visualizer, Channels (mono ↔ stereo), Bleep, Compress, Metadata; several: Join |
 | PDF | Word, JPG, PNG, Text | Pages, Split, Compress, Metadata; several: Merge |
 | Text and subtitles (TXT, SRT, VTT) | PDF, JPG, PNG, SRT, VTT, Text | |
 | Archives (ZIP, TAR, GZIP, RAR, 7Z) | ZIP, TAR, GZIP | Extract |

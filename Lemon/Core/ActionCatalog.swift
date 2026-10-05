@@ -23,6 +23,8 @@ nonisolated enum ActionCatalog {
     }
 
     /// Tools for one file, or for several files of the same kind.
+    /// Order matters on crowded wheels: the cards just left and right of the top one are the
+    /// narrowest, so they get short names (the engine tests check every name fits).
     static func tools(for kind: FileKind, multiple: Bool) -> [Tool] {
         switch (kind, multiple) {
         case (.image, false): [.compress, .metadata, .editPhoto, .annotate, .background, .crop, .redact, .readQR]
@@ -30,9 +32,9 @@ nonisolated enum ActionCatalog {
         case (.svg, false): [.createPDF]
         case (.gif, false): [.trim, .crop, .speed, .compress]
         case (.gif, true): [.compress]
-        case (.video, false): [.trim, .crop, .speed, .snapshots, .split, .mute, .redact, .compress, .metadata]
+        case (.video, false): [.trim, .crop, .speed, .snapshots, .split, .redact, .compress, .metadata, .mute]
         case (.video, true): [.join, .mute, .compress]
-        case (.audio, false): [.trim, .normalize, .channels, .visualizer, .bleep, .compress, .metadata]
+        case (.audio, false): [.trim, .normalize, .visualizer, .channels, .bleep, .compress, .metadata]
         case (.audio, true): [.join, .normalize, .compress]
         case (.pdf, false): [.organize, .splitPages, .compress, .metadata]
         case (.pdf, true): [.merge, .compress]

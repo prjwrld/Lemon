@@ -32,7 +32,7 @@ nonisolated enum Tool: String, CaseIterable, Sendable, Codable {
         case .split: "Split"
         case .mute: "Mute"
         case .normalize: "Normalize"
-        case .channels: "Mono/Stereo"
+        case .channels: "Channels"
         case .visualizer: "Visualizer"
         case .bleep: "Bleep"
         case .merge: "Merge"

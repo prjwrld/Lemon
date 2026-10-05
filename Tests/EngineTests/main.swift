@@ -205,6 +205,27 @@ if let cropped = try? await Processor.run(.tool(.crop), files: [portrait], optio
     check(false, "portrait crop (right half)", "failed")
 }
 
+// MARK: - Wheel labels fit inside their cards
+print("\nWheel labels")
+for kind in FileKind.allCases {
+    for multiple in [false, true] {
+        for mode in [WheelMode.convert, .tools] {
+            let choices = mode == .convert
+                ? ActionCatalog.outputs(for: kind).map(Action.convert)
+                : ActionCatalog.tools(for: kind, multiple: multiple).map(Action.tool)
+            guard !choices.isEmpty, !(mode == .convert && multiple) else { continue }
+            let placements = WheelGeometry.labelPlacements(for: choices)
+            // Readable means at least 80% of full size (the app allows shrinking further only as a last resort).
+            let squeezed = Swift.zip(choices, placements).compactMap { choice, placement -> String? in
+                let scale = placement.textWidth / WheelGeometry.textWidth(of: choice)
+                return scale < 0.8 ? "\(choice.label) \(Int(scale * 100))%" : nil
+            }
+            check(squeezed.isEmpty, "\(kind.label) \(mode == .convert ? "formats" : multiple ? "tools (several)" : "tools")",
+                  squeezed.isEmpty ? "\(choices.count) labels fit" : "too small: " + squeezed.joined(separator: ", "))
+        }
+    }
+}
+
 // MARK: - Originals untouched
 print("\nOriginals")
 for (url, data) in originals {

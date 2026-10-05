@@ -3,7 +3,11 @@ import SwiftUI
 /// What the wheel is currently showing.
 @Observable
 final class WheelModel {
-    var choices: [Action] = []
+    var choices: [Action] = [] {
+        didSet { layOutLabels() }
+    }
+    /// Where each choice's label sits inside its card; worked out once per set of choices.
+    private(set) var placements: [WheelGeometry.LabelPlacement] = []
     var mode = WheelMode.convert
     var files: [URL] = [] {
         didSet { summarizeFiles() }
@@ -20,6 +24,10 @@ final class WheelModel {
 
     var hoveredChoice: Action? {
         hovered.flatMap { choices.indices.contains($0) ? choices[$0] : nil }
+    }
+
+    private func layOutLabels() {
+        placements = WheelGeometry.labelPlacements(for: choices)
     }
 
     private func summarizeFiles() {
@@ -161,10 +169,13 @@ struct WheelView: View {
     private func slice(_ choice: Action, at index: Int, geometry: WheelGeometry) -> some View {
         let isHovered = model.hovered == index
         let shape = RingSlice(geometry: geometry, index: index)
-        return label(for: choice, geometry: geometry)
+        let placement = model.placements.indices.contains(index)
+            ? model.placements[index]
+            : WheelGeometry.LabelPlacement(center: geometry.labelOffset(of: index), textWidth: 50, textFirst: false)
+        return label(for: choice, placement: placement)
             .foregroundStyle(isHovered ? Color.black.opacity(0.85) : Color.white)
             .shadow(color: .black.opacity(isHovered ? 0 : 0.25), radius: 1, y: 0.5)
-            .offset(geometry.labelOffset(of: index))
+            .offset(placement.center)
             .frame(width: geometry.diameter, height: geometry.diameter)
             .background(shape.fill(Self.sheen))
             .overlay(bevel(shape))
@@ -179,24 +190,31 @@ struct WheelView: View {
             }
     }
 
-    /// A format name, or a tool's icon above its name.
+    /// A format name, or a tool's icon with its name. The name gets the width that fits
+    /// inside its card (see `WheelGeometry.labelPlacement`); longer names shrink to fit.
     @ViewBuilder
-    private func label(for choice: Action, geometry: WheelGeometry) -> some View {
+    private func label(for choice: Action, placement: WheelGeometry.LabelPlacement) -> some View {
         if let symbol = choice.symbol {
-            VStack(spacing: 4) {
-                Image(systemName: symbol).font(.system(size: 17, weight: .semibold))
-                Text(choice.label).font(.system(size: 9.5, weight: .bold)).tracking(0.3)
+            let icon = Image(systemName: symbol)
+                .font(.system(size: 17, weight: .semibold))
+                .frame(width: WheelGeometry.LabelStyle.iconSize.width, height: WheelGeometry.LabelStyle.iconSize.height)
+            let name = Text(choice.label)
+                .font(.system(size: WheelGeometry.LabelStyle.toolFontSize, weight: .bold))
+                .tracking(WheelGeometry.LabelStyle.toolTracking)
+                .lineLimit(1)
+                .minimumScaleFactor(WheelGeometry.LabelStyle.minimumScale)
+                .frame(width: placement.textWidth, height: WheelGeometry.LabelStyle.toolTextHeight)
+            VStack(spacing: WheelGeometry.LabelStyle.iconSpacing) {
+                // The name goes on the card's outer side, where there's more room.
+                if placement.textFirst { name; icon } else { icon; name }
             }
-            .lineLimit(1)
-            .minimumScaleFactor(0.7)
-            .frame(width: min(72, geometry.middleRadius * geometry.step * 0.95))
         } else {
             Text(choice.label)
-                .font(.system(size: 13.5, weight: .bold))
-                .tracking(0.3)
+                .font(.system(size: WheelGeometry.LabelStyle.formatFontSize, weight: .bold))
+                .tracking(WheelGeometry.LabelStyle.formatTracking)
                 .lineLimit(1)
-                .minimumScaleFactor(0.75)
-                .frame(width: min(72, geometry.middleRadius * geometry.step * 0.95))
+                .minimumScaleFactor(WheelGeometry.LabelStyle.minimumScale)
+                .frame(width: placement.textWidth, height: WheelGeometry.LabelStyle.formatTextHeight)
         }
     }
 

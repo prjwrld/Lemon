@@ -5,6 +5,6 @@ set -euo pipefail
 cd "$(dirname "$0")/.."
 OUT=build/engine-tests
 mkdir -p build
-SOURCES=(Lemon/Core/{FileKind,OutputFormat,Tool,ActionCatalog,SafeSaver,Settings,Jobs,Practice}.swift Lemon/Engines/*.swift Lemon/Tools/*.swift)
+SOURCES=(Lemon/Core/{FileKind,OutputFormat,Tool,ActionCatalog,SafeSaver,Settings,Jobs,Practice}.swift Lemon/Engines/*.swift Lemon/Tools/*.swift Lemon/Wheel/WheelGeometry.swift)
 xcrun swiftc -O -o build/engine-tests-bin Tests/EngineTests/main.swift "${SOURCES[@]}" 2>&1 | grep -E "error" || true
 LEMON_FFMPEG="$PWD/Vendor/bin/ffmpeg" build/engine-tests-bin "$PWD/$OUT"
