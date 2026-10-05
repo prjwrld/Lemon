@@ -6,7 +6,7 @@
 #   Image: WebP (libwebp)
 #
 # Output: Vendor/bin/ffmpeg  (Xcode copies it into Lemon.app/Contents/Helpers and signs it)
-# Licence notes for shipping: Vendor/ffmpeg-LICENSE.md (LGPL 2.1) — credit FFmpeg in About.
+# Licence: FFmpeg's LGPL 2.1 text is copied to Lemon/Licenses/ and ships inside the app (see About).
 set -euo pipefail
 cd "$(dirname "$0")/.."
 ROOT=$PWD
@@ -50,7 +50,7 @@ BREW=$(brew --prefix)
 echo "▸ Building (this takes a while)…"
 make -j"$(sysctl -n hw.ncpu)"
 cp -f ffmpeg "$ROOT/Vendor/bin/ffmpeg"
-cp -f COPYING.LGPLv2.1 "$ROOT/Vendor/ffmpeg-LICENSE.md"
+cp -f COPYING.LGPLv2.1 "$ROOT/Lemon/Licenses/FFmpeg-LGPL-2.1.txt"
 
 echo "▸ Checking it uses only macOS system libraries…"
 otool -L "$ROOT/Vendor/bin/ffmpeg" | tail -n +2

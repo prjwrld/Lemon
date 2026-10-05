@@ -18,18 +18,6 @@ enum WelcomeWindow {
         self.window = window
         window.present()
     }
-
-    /// A folder for practice files. Results saved here don't count as trial uses.
-    nonisolated static let practiceFolder: URL = {
-        let folder = FileManager.default.urls(for: .applicationSupportDirectory, in: .userDomainMask)[0]
-            .appendingPathComponent("Lemon/Practice", isDirectory: true)
-        try? FileManager.default.createDirectory(at: folder, withIntermediateDirectories: true)
-        return folder
-    }()
-
-    nonisolated static func isPractice(_ url: URL) -> Bool {
-        url.standardizedFileURL.path.hasPrefix(practiceFolder.standardizedFileURL.path)
-    }
 }
 
 struct WelcomeView: View {
@@ -37,7 +25,6 @@ struct WelcomeView: View {
 
     @State private var step = 0
     @State private var settings = AppSettings.shared
-    @State private var license = LicenseManager.shared
     @State private var jobs = JobCenter.shared
     @State private var practicePhoto: URL?
     @State private var launchAtLogin = SMAppService.mainApp.status == .enabled
@@ -95,7 +82,7 @@ struct WelcomeView: View {
                 Label("It worked! Lemon saved \(saved.lastPathComponent).", systemImage: "checkmark.circle.fill")
                     .foregroundStyle(.green)
             } else {
-                Text("Lemon will save \(result) next to the original. Practice files don't use your free uses.")
+                Text("Lemon will save \(result) next to the original.")
                     .font(.caption).foregroundStyle(.secondary).multilineTextAlignment(.center)
             }
         }
@@ -120,12 +107,9 @@ struct WelcomeView: View {
                 .onChange(of: launchAtLogin) {
                     try? launchAtLogin ? SMAppService.mainApp.register() : SMAppService.mainApp.unregister()
                 }
-            Label(license.isLicensed ? "Lemon is licensed on this Mac. Thank you!" :
-                    "You have \(license.usesLeft) free uses. After that, buy Lemon once to keep using it.",
-                  systemImage: "gift")
-            if !license.isLicensed {
-                Button("Buy Lemon or Enter a Key…") { PurchaseWindow.show() }.buttonStyle(.glass)
-            }
+            Label("Lemon is free and open source. Found a bug or have an idea? Tell us on GitHub.",
+                  systemImage: "heart")
+            Button("Open Lemon on GitHub") { NSWorkspace.shared.open(ProjectInfo.repositoryURL) }.buttonStyle(.glass)
         }
         .labelStyle(WelcomeLabelStyle())
     }
@@ -134,14 +118,14 @@ struct WelcomeView: View {
 
     private var latestPracticeResult: URL? {
         for job in jobs.jobs.reversed() {
-            if case .finished(let urls) = job.state, let url = urls.first, WelcomeWindow.isPractice(url) { return url }
+            if case .finished(let urls) = job.state, let url = urls.first, Practice.contains(url) { return url }
         }
         return nil
     }
 
     /// A small lemon-yellow photo to practise on.
     private func makePracticePhoto() -> URL? {
-        let url = WelcomeWindow.practiceFolder.appendingPathComponent("Practice Photo.jpg")
+        let url = Practice.folder.appendingPathComponent("Practice Photo.jpg")
         if FileManager.default.fileExists(atPath: url.path) { return url }
         guard let context = ImageEngine.makeContext(width: 800, height: 560, alpha: false) else { return nil }
         let colors = [CGColor(srgbRed: 1, green: 0.88, blue: 0.2, alpha: 1), CGColor(srgbRed: 0.98, green: 0.6, blue: 0.1, alpha: 1)]

@@ -201,6 +201,7 @@
 				CODE_SIGN_IDENTITY = "-";
 				CODE_SIGN_STYLE = Manual;
 				COMBINE_HIDPI_IMAGES = YES;
+				ARCHS = arm64;
 				CURRENT_PROJECT_VERSION = 1;
 				DEVELOPMENT_TEAM = WR42UXPTXW;
 				ENABLE_APP_SANDBOX = NO;
@@ -210,7 +211,7 @@
 				INFOPLIST_KEY_CFBundleDisplayName = Lemon;
 				INFOPLIST_KEY_LSApplicationCategoryType = "public.app-category.utilities";
 				INFOPLIST_KEY_LSUIElement = YES;
-				INFOPLIST_KEY_NSHumanReadableCopyright = "";
+				INFOPLIST_KEY_NSHumanReadableCopyright = "Copyright © 2026 Prajwal Prasad. Free software under the GPL-3.0.";
 				LD_RUNPATH_SEARCH_PATHS = (
 					"$(inherited)",
 					"@executable_path/../Frameworks",
@@ -234,6 +235,7 @@
 				CODE_SIGN_IDENTITY = "Developer ID Application";
 				CODE_SIGN_STYLE = Manual;
 				COMBINE_HIDPI_IMAGES = YES;
+				ARCHS = arm64;
 				CURRENT_PROJECT_VERSION = 1;
 				DEVELOPMENT_TEAM = WR42UXPTXW;
 				ENABLE_APP_SANDBOX = NO;
@@ -243,7 +245,7 @@
 				INFOPLIST_KEY_CFBundleDisplayName = Lemon;
 				INFOPLIST_KEY_LSApplicationCategoryType = "public.app-category.utilities";
 				INFOPLIST_KEY_LSUIElement = YES;
-				INFOPLIST_KEY_NSHumanReadableCopyright = "";
+				INFOPLIST_KEY_NSHumanReadableCopyright = "Copyright © 2026 Prajwal Prasad. Free software under the GPL-3.0.";
 				LD_RUNPATH_SEARCH_PATHS = (
 					"$(inherited)",
 					"@executable_path/../Frameworks",

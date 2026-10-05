@@ -184,6 +184,6 @@ nonisolated enum Processor {
 
     static func place(_ product: Product, settings: ConversionSettings) throws -> URL {
         try SafeSaver.place(product.url, nextTo: product.source, fileExtension: product.fileExtension,
-                            suffix: product.suffix, folder: settings.outputFolder)
+                            suffix: product.suffix, folder: Practice.contains(product.source) ? nil : settings.outputFolder)
     }
 }

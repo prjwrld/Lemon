@@ -291,38 +291,59 @@ private struct FoldersTab: View {
 // MARK: - About
 
 private struct AboutTab: View {
-    @State private var license = LicenseManager.shared
+    private var version: String {
+        Bundle.main.object(forInfoDictionaryKey: "CFBundleShortVersionString") as? String ?? ""
+    }
 
     var body: some View {
         ScrollView {
             VStack(spacing: 14) {
                 Image(nsImage: NSApp.applicationIconImage).resizable().frame(width: 96, height: 96)
                 Text("Lemon").font(.largeTitle.bold())
-                Text("Version \(Bundle.main.object(forInfoDictionaryKey: "CFBundleShortVersionString") as? String ?? "") · \(license.statusText)")
-                    .foregroundStyle(.secondary)
+                Text("Version \(version) · Free and open source").foregroundStyle(.secondary)
                 HStack {
-                    Button(license.isLicensed ? "Licence…" : "Buy Lemon…") { PurchaseWindow.show() }.buttonStyle(.glassProminent).tint(.lemonDeep)
-                    Link("Website", destination: StoreConfig.websiteURL).buttonStyle(.glass)
+                    Link("Source Code", destination: ProjectInfo.repositoryURL).buttonStyle(.glassProminent).tint(.lemonDeep)
+                    Link("Report a Problem", destination: ProjectInfo.issuesURL).buttonStyle(.glass)
+                    Link("New Versions", destination: ProjectInfo.releasesURL).buttonStyle(.glass)
                 }
-                Text("All conversions happen on your Mac. Lemon only goes online to check a licence key.")
+                Text("All conversions happen on your Mac. Lemon never goes online and collects nothing.")
                     .font(.callout).foregroundStyle(.secondary).multilineTextAlignment(.center)
-                GroupBox("Acknowledgements") {
-                    Text(ThirdParty.notice).font(.caption).textSelection(.enabled).frame(maxWidth: .infinity, alignment: .leading)
+                GroupBox("Licences") {
+                    VStack(alignment: .leading, spacing: 10) {
+                        Text(ThirdParty.notice).font(.caption).textSelection(.enabled)
+                        HStack {
+                            licenceButton("Lemon's Licence (GPL-3.0)", file: "LICENSE-GPL-3.0")
+                            licenceButton("FFmpeg's Licence (LGPL-2.1)", file: "FFmpeg-LGPL-2.1")
+                            Link("FFmpeg Source", destination: ProjectInfo.ffmpegSourceURL)
+                        }
+                        .controlSize(.small)
+                    }
+                    .frame(maxWidth: .infinity, alignment: .leading)
                 }
             }
             .padding(24)
         }
     }
+
+    /// Opens a licence text that ships inside the app.
+    private func licenceButton(_ title: String, file: String) -> some View {
+        Button(title) {
+            if let url = Bundle.main.url(forResource: file, withExtension: "txt") { NSWorkspace.shared.open(url) }
+        }
+    }
 }
 
-/// Credits required by the open-source parts inside Lemon's media helper.
+/// Lemon's own licence, and the credits required by the open-source parts in its media helper.
 enum ThirdParty {
     static let notice = """
-    Lemon's audio and video features use FFmpeg 9.0.2 (https://ffmpeg.org), licensed under the \
-    GNU Lesser General Public License (LGPL) version 2.1. Lemon's copy is built without GPL or non-free parts \
-    and runs as a separate helper program (Contents/Helpers/ffmpeg). Its source code and the exact build script \
-    are available on request and from ffmpeg.org. You may replace the helper with your own build.
+    Lemon is free software: you can redistribute it and/or modify it under the terms of the \
+    GNU General Public License, version 3 or later. It comes with no warranty.
 
-    FFmpeg includes: LAME and mpg123 (LGPL 2.1), libvorbis, libogg, Opus, libvpx and libwebp (BSD licences).
+    Audio and video features use FFmpeg 9.0.2 (https://ffmpeg.org) under the GNU Lesser General Public \
+    License (LGPL) version 2.1. Lemon's copy is built without GPL or non-free parts and runs as a separate \
+    helper (Contents/Helpers/ffmpeg). The exact source and build script (scripts/build-ffmpeg.sh) are in \
+    Lemon's repository. You may replace the helper with your own build.
+
+    FFmpeg includes LAME and mpg123 (LGPL 2.1), and libvorbis, libogg, Opus, libvpx and libwebp (BSD licences).
     """
 }

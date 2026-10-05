@@ -36,11 +36,10 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         watcher.start()
         hud.start()
 
-        let demo = UserDefaults.standard.bool(forKey: "LemonDemoWheel") || UserDefaults.standard.string(forKey: "LemonDemoEditor") != nil
+        let demo = ["LemonDemoWheel", "LemonDemoEditor", "LemonDemoSettings"].contains { UserDefaults.standard.object(forKey: $0) != nil }
         if !AppSettings.shared.hasSeenWelcome && !demo {
             WelcomeWindow.show()
         }
-        Task { await LicenseManager.shared.revalidate() }
 
         #if DEBUG
         runDesignDemoIfAsked()
@@ -49,11 +48,6 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
 
     /// Something was dropped on the wheel.
     private func choose(_ action: Action, files: [URL]) {
-        let practice = files.allSatisfy(WelcomeWindow.isPractice)
-        guard practice || LicenseManager.shared.canUse else {
-            PurchaseWindow.show(reason: "You've used all your free conversions. Buy Lemon to keep going.")
-            return
-        }
         if case .tool(let tool) = action, tool.needsEditor {
             EditorPresenter.present(tool, files: files) { [weak self] options in
                 self?.start(action, files: files, options: options)
@@ -81,10 +75,6 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     private func finished(_ urls: [URL]) {
         if !urls.isEmpty { state.lastResults = urls }
         if AppSettings.shared.feedback { Feedback.success() }
-        // Practice files from the welcome tour don't use up the trial.
-        if urls.isEmpty || !urls.allSatisfy(WelcomeWindow.isPractice) {
-            LicenseManager.shared.recordUse()
-        }
     }
 
     #if DEBUG
@@ -94,6 +84,11 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     /// "-LemonDemoBackdrop /path/to/image" to put a picture behind it, to judge the glass.
     private func runDesignDemoIfAsked() {
         let defaults = UserDefaults.standard
+        // "-LemonDemoSettings about" opens Settings on that tab.
+        if let name = defaults.string(forKey: "LemonDemoSettings"),
+           let tab = SettingsView.Tab.allCases.first(where: { $0.rawValue.lowercased() == name.lowercased() }) {
+            SettingsWindow.show(tab: tab)
+        }
         guard defaults.bool(forKey: "LemonDemoWheel") || defaults.string(forKey: "LemonDemoEditor") != nil,
               let screen = NSScreen.main else { return }
         if let path = defaults.string(forKey: "LemonDemoBackdrop"), let image = NSImage(contentsOfFile: path) {
