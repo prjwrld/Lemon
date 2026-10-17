@@ -53,10 +53,12 @@ async function razorpayWebhook(request, env, ctx) {
     if (payment.currency !== "INR" || payment.amount !== Number(env.PRICE_PAISE) || !payment.id) {
       return json({ ok: true, ignored: "Not a Lemon purchase (amount or currency differ)." });
     }
-    // Other apps on this Razorpay account (Secret Santa, Rightly) also sell at this price. Their checkouts tag
-    // payments with these notes; a Lemon Payment Page payment never has them.
-    const otherApp = ["app", "skuId", "kind", "uid", "plan", "offer", "user"].find((name) => name in notes);
-    if (otherApp) return json({ ok: true, ignored: `Another app's payment (has "${otherApp}" in its notes).` });
+    // Other apps on this Razorpay account (Secret Santa, Rightly) also sell at this price, and every webhook
+    // gets every payment. A payment from Lemon's Payment Page carries only the page's form fields in its notes
+    // (PAGE_NOTE_KEYS, e.g. email and phone); other apps' checkouts add their own notes, so they're ignored.
+    const allowed = new Set(String(env.PAGE_NOTE_KEYS ?? "email,phone").split(",").map((k) => k.trim()).filter(Boolean));
+    const foreign = Object.keys(notes).find((name) => !allowed.has(name));
+    if (foreign) return json({ ok: true, ignored: `Not from Lemon's Payment Page (has "${foreign}" in its notes).` });
     const { key, created } = await createLicence(env, payment.id, payment.email ?? "", payment.amount);
     if (created && payment.email && env.RESEND_API_KEY) ctx.waitUntil(emailKey(env, payment.email, key, payment.id));
     return json({ ok: true, created });

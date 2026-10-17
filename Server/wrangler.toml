@@ -7,6 +7,10 @@ compatibility_date = "2026-09-01"
 # Lemon's price on your Razorpay Payment Page, in paise (₹799 = 79900). Only payments of
 # exactly this amount in INR create a key, so other sales on your account don't.
 PRICE_PAISE = "79900"
+# The form fields on Lemon's Razorpay Payment Page. Razorpay copies them into the payment's notes; a payment
+# with any other note (from Secret Santa, Rightly…) never makes a Lemon key. Add a field here if you add one
+# to the page.
+PAGE_NOTE_KEYS = "email,phone"
 # How many Macs one key can be active on at once.
 ACTIVATION_LIMIT = "2"
 # Shown in emails and on the Find My Key page.

@@ -40,6 +40,9 @@ webhook "$OTHER" >/dev/null
 RIGHTLY="{\"event\":\"payment.captured\",\"payload\":{\"payment\":{\"entity\":{\"id\":\"pay_RIGHTLY\",\"amount\":$PRICE,\"currency\":\"INR\",\"email\":\"x@example.com\",\"notes\":{\"app\":\"rightly\"}}}}}"
 webhook "$RIGHTLY" >/dev/null
 check "Secret Santa / Rightly payment at the same price makes no key" "$(count_keys)" 1
+PAGEPAY="{\"event\":\"payment.captured\",\"payload\":{\"payment\":{\"entity\":{\"id\":\"pay_PAGE\",\"amount\":$PRICE,\"currency\":\"INR\",\"email\":\"p@example.com\",\"notes\":{\"email\":\"p@example.com\",\"phone\":\"9000000000\"}}}}}"
+webhook "$PAGEPAY" >/dev/null
+check "a real Payment Page payment (notes: email, phone) makes a key" "$(count_keys)" 2
 KEY=$(key_for pay_TEST1)
 check "key looks right" "$([[ $KEY =~ '^LEMON-([A-HJ-NP-Z2-9]{5}-){3}[A-HJ-NP-Z2-9]{5}$' ]] && echo yes)" yes
 
