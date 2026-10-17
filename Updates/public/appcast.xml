@@ -3,6 +3,22 @@
     <channel>
         <title>Lemon</title>
         <item>
+            <title>1.0.1</title>
+            <pubDate>Sat, 17 Oct 2026 23:42:20 +0530</pubDate>
+            <sparkle:version>202610172340</sparkle:version>
+            <sparkle:shortVersionString>1.0.1</sparkle:shortVersionString>
+            <sparkle:minimumSystemVersion>26.0</sparkle:minimumSystemVersion>
+            <sparkle:hardwareRequirements>arm64</sparkle:hardwareRequirements>
+            <description><![CDATA[<ul>
+<li>Smoother wheel: card corners and edges are now perfectly clean</li>
+</ul>
+]]></description>
+            <enclosure url="https://lemon-updates.edupurspose.workers.dev/Lemon-1.0.1.dmg" length="15007840" type="application/octet-stream" sparkle:edSignature="XKZQA0uk6CInYaB9KxBr8q9MEIZXP/JBNaplPHznGuRUGEHnwyWl6UcCUtvHUK94JBkeBcbn666mQCKY8Zj6AQ=="/>
+            <sparkle:deltas>
+                <enclosure url="https://lemon-updates.edupurspose.workers.dev/Lemon202610172340-202610172333.delta" sparkle:deltaFrom="202610172333" length="64574" type="application/octet-stream" sparkle:deltaFromSparkleExecutableSize="976432" sparkle:deltaFromSparkleLocales="de,he,ar,el,ja,fa,uk" sparkle:edSignature="JBGpPCld740LR5JL/x1lGBsEXUZrZ0ZsGxVyKpPq2YC/U7CnGRetY7LWHybFLVOnYFE5c6PbyeAcolBoPzAJCA=="/>
+            </sparkle:deltas>
+        </item>
+        <item>
             <title>1.0</title>
             <pubDate>Sat, 17 Oct 2026 23:35:24 +0530</pubDate>
             <sparkle:version>202610172333</sparkle:version>

@@ -36,30 +36,26 @@ The keys are configurable in Settings.
 
 ## Selling Lemon
 
-Lemon is a one-time purchase sold through [Lemon Squeezy](https://www.lemonsqueezy.com), with licence keys.
+Lemon is a one-time purchase, **₹799**, sold through a **Razorpay Payment Page** (UPI and cards, including cards
+from outside India): https://rzp.io/rzp/uuLxRW7 (test mode: https://rzp.io/rzp/mkqmlar). Website:
+https://fixbyai.in/lemon (in the FixbyAI-Site project).
 
 - **Free uses:** every feature works for 15 conversions or tools (`StoreConfig.freeUses`). Practice files in the
-  welcome tour don't count. After that, the wheel opens the Buy window instead.
-- **Licence keys:** activated, checked and deactivated with the Lemon Squeezy licence API
-  (`Lemon/Core/License.swift`). The key and remaining uses are kept in the Keychain, so they survive a reinstall.
-  Debug builds keep them in UserDefaults (`debug.keychain.*`) to avoid Keychain password prompts.
-- **Before release, fill in `StoreConfig`** in `Lemon/Core/License.swift`: checkout link, product ID (so only keys
-  for Lemon are accepted), price text, website, privacy and terms pages, support email, and the Razorpay page and
-  key server URLs. All are placeholders now; `scripts/release.sh` refuses to build until they're filled in.
-- In Lemon Squeezy, turn on **licence keys** for the product, with an activation limit (for example 2 Macs).
-
-- **Free uses can't be reset** by deleting one copy: the count is kept in the Keychain, in preferences and in a
-  hidden file, and the lowest wins (`FreeUses` in `License.swift`).
-- **Regular checks:** Lemon confirms the key at launch and about once a day. If Lemon Squeezy says the key is no
-  longer valid (refunded, disabled, made up, other product), the licence is removed. Offline, Lemon keeps working
-  for 30 days since the last successful check, then asks to connect and click Check Now.
-
-### Selling in India (Razorpay)
-
-People in India can pay with UPI or an Indian card through a Razorpay Payment Page. Razorpay doesn't make
-licence keys, so Lemon's own small key server (`Server/`, a free Cloudflare Worker) does: one unique
-`LEMON-…` key per payment, emailed and shown on a "Find your key" page, checked the same way as Lemon
-Squeezy keys. Macs set to the India region see the Razorpay button first. Setup: [Server/README.md](Server/README.md).
+  welcome tour don't count. After that, the wheel opens the Buy window instead. The count is kept in the Keychain,
+  in preferences and in a hidden file, and the lowest wins (`FreeUses` in `License.swift`), so deleting one copy
+  doesn't reset it.
+- **Licence keys:** Razorpay doesn't make keys, so Lemon's own key server (`Server/`, a Cloudflare Worker at
+  lemon-licences.edupurspose.workers.dev) does: one unique `LEMON-…` key per Lemon Page payment, shown on the
+  "Find your key" page (fixbyai.in/lemon/key), 2 Macs per key, turned off by a refund. Setup and admin:
+  [Server/README.md](Server/README.md).
+- **Regular checks:** Lemon confirms the key at launch and about once a day. If the server says the key is no longer
+  valid (refunded, disabled, made up), the licence is removed. Offline, Lemon keeps working for 30 days since the
+  last successful check, then asks to connect and click Check Now.
+- **Lemon Squeezy** (with global tax handling) is built in but switched off (`StoreConfig.lemonSqueezyEnabled`). To
+  use it: turn on licence keys for the product (activation limit 2), fill in its checkout link and product ID, and
+  switch it on; Macs outside India then see it first.
+- All store links live in `StoreConfig` (`Lemon/Core/License.swift`); `scripts/release.sh` refuses to build while
+  any are placeholders.
 
 Testing in a Debug build (no dragging needed): `-LemonTestSetUses N`, `-LemonTestConvert /path/file -LemonTestFormat png`,
 `-LemonTestActivate KEY`, `-LemonTestLastChecked DAYS`, `-LemonTestOffline YES` and
@@ -117,10 +113,19 @@ Spotting drags needs no special permission: Lemon watches mouse clicks and the s
 
 ## Releasing (maintainer)
 
-One time: `xcrun notarytool store-credentials lemon-notary --apple-id YOUR_APPLE_ID --team-id WR42UXPTXW`
+```sh
+./scripts/release.sh 1.0.2 notes.txt   # notes: one change per line, shown in the update window
+```
 
-Then `./scripts/release.sh` builds, signs with Developer ID, notarizes and staples `build/Lemon.zip`,
-ready to upload to Lemon Squeezy and your website.
+It archives Lemon with a timestamp build number, signs it with Developer ID (Sparkle's helpers inside out), packs
+the DMG with its install window (`Config/dmg-settings.py`), has Apple notarize and staple it, signs the update with
+Lemon's update key (Keychain, account `lemon`), rewrites `Updates/public/appcast.xml` and deploys the
+`lemon-updates` site. Installed copies pick it up within a day (a small delta when possible), download it in the
+background and install it when Lemon quits; https://fixbyai.in/lemon/download always gives the newest DMG.
+
+It reuses tools set up for Rightly: the `rightly-notary` notarytool profile (override with `NOTARY_PROFILE`),
+Sparkle's `bin` tools and `dmgbuild` (paths at the top of the script). Keep `Updates/public/*.dmg`: they're not in
+git, and Sparkle uses them for delta updates. Debug builds never update themselves.
 
 ## Licence
 
