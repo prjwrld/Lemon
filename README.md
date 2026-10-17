@@ -44,7 +44,8 @@ Lemon is a one-time purchase sold through [Lemon Squeezy](https://www.lemonsquee
   (`Lemon/Core/License.swift`). The key and remaining uses are kept in the Keychain, so they survive a reinstall.
   Debug builds keep them in UserDefaults (`debug.keychain.*`) to avoid Keychain password prompts.
 - **Before release, fill in `StoreConfig`** in `Lemon/Core/License.swift`: checkout link, product ID (so only keys
-  for Lemon are accepted), price text, website, privacy and terms pages, and support email. All are placeholders now.
+  for Lemon are accepted), price text, website, privacy and terms pages, support email, and the Razorpay page and
+  key server URLs. All are placeholders now; `scripts/release.sh` refuses to build until they're filled in.
 - In Lemon Squeezy, turn on **licence keys** for the product, with an activation limit (for example 2 Macs).
 
 - **Free uses can't be reset** by deleting one copy: the count is kept in the Keychain, in preferences and in a
@@ -53,8 +54,16 @@ Lemon is a one-time purchase sold through [Lemon Squeezy](https://www.lemonsquee
   longer valid (refunded, disabled, made up, other product), the licence is removed. Offline, Lemon keeps working
   for 30 days since the last successful check, then asks to connect and click Check Now.
 
+### Selling in India (Razorpay)
+
+People in India can pay with UPI or an Indian card through a Razorpay Payment Page. Razorpay doesn't make
+licence keys, so Lemon's own small key server (`Server/`, a free Cloudflare Worker) does: one unique
+`LEMON-…` key per payment, emailed and shown on a "Find your key" page, checked the same way as Lemon
+Squeezy keys. Macs set to the India region see the Razorpay button first. Setup: [Server/README.md](Server/README.md).
+
 Testing in a Debug build (no dragging needed): `-LemonTestSetUses N`, `-LemonTestConvert /path/file -LemonTestFormat png`,
-`-LemonTestActivate KEY`, `-LemonTestLastChecked DAYS` and `-LemonTestOffline YES`, e.g.
+`-LemonTestActivate KEY`, `-LemonTestLastChecked DAYS`, `-LemonTestOffline YES` and
+`-LemonTestKeyServer http://localhost:8787` (see `Server/test.sh`), e.g.
 `build/Build/Products/Debug/Lemon.app/Contents/MacOS/Lemon -LemonTestSetUses 0 -LemonTestConvert ~/photo.jpg`.
 
 ## Build from source

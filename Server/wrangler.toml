@@ -1,0 +1,25 @@
+# Lemon's licence key server for Razorpay (India) purchases. See README.md.
+name = "lemon-licences"
+main = "src/index.js"
+compatibility_date = "2026-09-01"
+
+[vars]
+# Lemon's price on your Razorpay Payment Page, in paise (₹499 = 49900). Only payments of
+# exactly this amount in INR create a key, so other sales on your account don't.
+PRICE_PAISE = "49900"
+# How many Macs one key can be active on at once.
+ACTIVATION_LIMIT = "2"
+# Shown in emails and on the Find My Key page.
+SUPPORT_EMAIL = "support@example.com"
+# Sender for key emails (a domain you've verified in Resend). Only used if RESEND_API_KEY is set.
+EMAIL_FROM = "Lemon <keys@example.com>"
+
+# Secrets (set with `npx wrangler secret put NAME`, never written here):
+#   RAZORPAY_WEBHOOK_SECRET  the secret you type when adding the webhook in Razorpay
+#   ADMIN_TOKEN              a long random password for /admin/keys
+#   RESEND_API_KEY           optional: emails each buyer their key
+
+[[d1_databases]]
+binding = "DB"
+database_name = "lemon-licences"
+database_id = "REPLACE-WITH-ID-FROM-wrangler-d1-create"

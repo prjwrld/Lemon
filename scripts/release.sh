@@ -15,8 +15,9 @@ EXPORT=build/export
 ZIP=build/Lemon.zip
 
 # Don't ship with the placeholder store settings (any licence key would be accepted).
-if grep -qE 'productID: Int\? = nil|example\.(com|lemonsqueezy)' Lemon/Core/License.swift; then
-  echo "✗ Fill in StoreConfig in Lemon/Core/License.swift first (product ID, checkout link, website, support email)." >&2
+if grep -qE 'productID: Int\? = nil|example\.(com|lemonsqueezy)|REPLACE-WITH' Lemon/Core/License.swift; then
+  echo "✗ Fill in StoreConfig in Lemon/Core/License.swift first (product ID, checkout link, website, support email," >&2
+  echo "  Razorpay page and key server URL)." >&2
   exit 1
 fi
 

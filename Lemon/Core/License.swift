@@ -20,6 +20,25 @@ enum StoreConfig {
     static let ffmpegSourceURL = URL(string: "https://ffmpeg.org/releases/ffmpeg-9.0.2.tar.xz")!
     /// How many conversions or tools people can use before buying.
     static let freeUses = 15
+
+    // MARK: India: Razorpay (see Server/README.md)
+    /// Your Razorpay Payment Page for Lemon (one link many people can pay through).
+    static let razorpayPageURL = URL(string: "https://pages.razorpay.com/REPLACE-WITH-YOUR-PAGE")!
+    /// Shown on the India Buy button, e.g. "₹499". nil shows no price.
+    static let razorpayPriceText: String? = nil
+    /// Lemon's own key server (Server/), which makes and checks the keys of Razorpay buyers.
+    static let keyServerURL = URL(string: "https://lemon-licences.REPLACE-WITH-YOUR-SUBDOMAIN.workers.dev")!
+    /// "Find my key" page on the key server, for Razorpay buyers.
+    static var keyLookupURL: URL { keyServerURL.appendingPathComponent("key") }
+
+    /// Keys from Lemon's own server (Razorpay purchases) look like LEMON-XXXXX-XXXXX-XXXXX-XXXXX;
+    /// all other keys come from Lemon Squeezy.
+    static func isOwnServerKey(_ key: String) -> Bool { key.uppercased().hasPrefix("LEMON-") }
+
+    /// Shows the India (Razorpay) way to pay first on Macs set to the India region.
+    static var prefersRazorpay: Bool { Locale.current.region == .india }
+    /// Where the main Buy button goes.
+    static var preferredBuyURL: URL { prefersRazorpay ? razorpayPageURL : checkoutURL }
 }
 
 /// Free uses and the licence key. Both live in the Keychain, so they survive reinstalling.
@@ -89,13 +108,14 @@ final class LicenseManager {
 
     /// Activates a key for this Mac. Throws a readable message if it's not accepted.
     func activate(_ rawKey: String) async throws {
-        let key = rawKey.trimmingCharacters(in: .whitespacesAndNewlines)
+        var key = rawKey.trimmingCharacters(in: .whitespacesAndNewlines)
+        if StoreConfig.isOwnServerKey(key) { key = key.uppercased() }
         guard !key.isEmpty else { throw LemonError("Enter the licence key from your receipt email.") }
         let response = try await post("activate", ["license_key": key, "instance_name": Host.current().localizedName ?? "Mac"])
         guard response.activated == true, let instance = response.instance else {
             throw LemonError(response.error ?? "That licence key wasn't accepted.")
         }
-        if let expected = StoreConfig.productID, response.meta?.product_id != expected {
+        if !StoreConfig.isOwnServerKey(key), let expected = StoreConfig.productID, response.meta?.product_id != expected {
             // Give the activation back, so the key's owner doesn't lose a Mac slot.
             _ = try? await post("deactivate", ["license_key": key, "instance_id": instance.id])
             throw LemonError("That key is for a different product.")
@@ -127,7 +147,7 @@ final class LicenseManager {
         guard let response = try? await post("validate", ["license_key": key, "instance_id": instanceID]),
               let valid = response.valid
         else { return .offline }
-        let wrongProduct = StoreConfig.productID.map { response.meta?.product_id != $0 } ?? false
+        let wrongProduct = !StoreConfig.isOwnServerKey(key) && (StoreConfig.productID.map { response.meta?.product_id != $0 } ?? false)
         guard valid, !wrongProduct else {
             removeLicence()
             return .removed
@@ -176,7 +196,15 @@ final class LicenseManager {
             throw LemonError("Couldn't reach the licence server. Check your internet connection.")
         }
         #endif
-        var request = URLRequest(url: URL(string: "https://api.lemonsqueezy.com/v1/licenses/\(action)")!)
+        // Razorpay keys are checked by Lemon's own server, all others by Lemon Squeezy (same API).
+        var server = URL(string: "https://api.lemonsqueezy.com")!
+        if StoreConfig.isOwnServerKey(fields["license_key"] ?? "") {
+            server = StoreConfig.keyServerURL
+            #if DEBUG
+            if let test = UserDefaults.standard.string(forKey: "LemonTestKeyServer"), let url = URL(string: test) { server = url }
+            #endif
+        }
+        var request = URLRequest(url: server.appendingPathComponent("v1/licenses/\(action)"))
         request.httpMethod = "POST"
         request.setValue("application/json", forHTTPHeaderField: "Accept")
         request.setValue("application/x-www-form-urlencoded", forHTTPHeaderField: "Content-Type")

@@ -236,10 +236,7 @@ struct LicencePanel: View {
             }
             .frame(maxWidth: .infinity, alignment: .leading)
 
-            Button(StoreConfig.priceText.map { "Buy Lemon · \($0), one time" } ?? "Buy Lemon") {
-                NSWorkspace.shared.open(StoreConfig.checkoutURL)
-            }
-            .buttonStyle(LemonButtonStyle())
+            BuyButtons()
 
             VStack(alignment: .leading, spacing: 6) {
                 Text("Already bought Lemon?").font(.callout.weight(.medium))
@@ -255,6 +252,11 @@ struct LicencePanel: View {
                     Label(error, systemImage: "exclamationmark.triangle.fill")
                         .font(.caption).foregroundStyle(.red)
                 }
+                HStack(spacing: 4) {
+                    Text("Paid with UPI or Razorpay?").foregroundStyle(.secondary)
+                    Link("Find your key", destination: StoreConfig.keyLookupURL)
+                }
+                .font(.caption)
             }
         }
     }
@@ -289,6 +291,31 @@ struct LicencePanel: View {
             }
             working = false
         }
+    }
+}
+
+/// The ways to pay. Macs set to the India region see Razorpay (UPI, Indian cards) first;
+/// everyone else sees Lemon Squeezy first. Both are one-time purchases.
+struct BuyButtons: View {
+    var body: some View {
+        VStack(spacing: 8) {
+            if StoreConfig.prefersRazorpay {
+                buy("Buy with UPI or Card", price: StoreConfig.razorpayPriceText, url: StoreConfig.razorpayPageURL)
+                other("Paying from outside India? Buy here", url: StoreConfig.checkoutURL)
+            } else {
+                buy("Buy Lemon", price: StoreConfig.priceText, url: StoreConfig.checkoutURL)
+                other("In India? Pay with UPI", url: StoreConfig.razorpayPageURL)
+            }
+        }
+    }
+
+    private func buy(_ title: String, price: String?, url: URL) -> some View {
+        Button(price.map { "\(title) · \($0), one time" } ?? title) { NSWorkspace.shared.open(url) }
+            .buttonStyle(LemonButtonStyle())
+    }
+
+    private func other(_ title: String, url: URL) -> some View {
+        Link(title, destination: url).font(.callout)
     }
 }
 

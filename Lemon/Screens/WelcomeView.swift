@@ -241,7 +241,7 @@ struct WelcomeView: View {
                         Image(systemName: "gift.fill").foregroundStyle(Color.lemonDeep)
                     }
                     HStack {
-                        Button("Buy Lemon") { NSWorkspace.shared.open(StoreConfig.checkoutURL) }.buttonStyle(.glass)
+                        Button("Buy Lemon") { NSWorkspace.shared.open(StoreConfig.preferredBuyURL) }.buttonStyle(.glass)
                         Button("I Have a Licence Key") { SettingsWindow.show(tab: .licence) }.buttonStyle(.glass)
                     }
                 }
