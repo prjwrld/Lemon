@@ -2,11 +2,13 @@
 //
 // - POST /razorpay/webhook       Razorpay tells us about payments and refunds. Each paid Lemon
 //                                purchase gets exactly one key; a refund turns its key off.
-// - GET/POST /key                "Find my key": payment ID + email shows the key.
+// - GET/POST /key                "Find my key": payment ID + email shows the key (/logo.png is its icon).
 // - POST /v1/licenses/activate   The same requests and replies as Lemon Squeezy's licence API,
 //   POST /v1/licenses/validate   so the Lemon app talks to both the same way.
 //   POST /v1/licenses/deactivate
 // - GET/POST /admin/keys         Your own tools (needs ADMIN_TOKEN): list, create by hand, disable.
+
+import { LOGO_PNG_BASE64 } from "./logo.js";
 
 const KEY_ALPHABET = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789"; // 32 letters: no 0/O or 1/I to mix up
 
@@ -16,6 +18,7 @@ export default {
     try {
       if (url.pathname === "/razorpay/webhook" && request.method === "POST") return await razorpayWebhook(request, env, ctx);
       if (url.pathname === "/key") return await findMyKey(request, env);
+      if (url.pathname === "/logo.png" || url.pathname === "/favicon.ico") return logo();
       if (url.pathname.startsWith("/v1/licenses/") && request.method === "POST") {
         return await licenceAPI(url.pathname.slice("/v1/licenses/".length), request, env);
       }
@@ -107,44 +110,149 @@ async function emailKey(env, to, key, paymentID) {
 // MARK: Find my key
 
 async function findMyKey(request, env) {
-  let message = "";
+  const url = new URL(request.url);
+  let paymentID = (url.searchParams.get("payment_id") ?? url.searchParams.get("razorpay_payment_id") ?? "").trim();
+  let email = "";
   let found = null;
+  let message = "";
   if (request.method === "POST") {
     const form = await request.formData();
-    const paymentID = String(form.get("payment_id") ?? "").trim();
-    const email = String(form.get("email") ?? "").trim().toLowerCase();
-    const row = paymentID && email
+    paymentID = String(form.get("payment_id") ?? "").trim();
+    email = String(form.get("email") ?? "").trim().toLowerCase();
+    found = paymentID && email
       ? await env.DB.prepare("SELECT key, status FROM licences WHERE payment_id = ? AND email = ?").bind(paymentID, email).first()
       : null;
-    if (row) found = row;
-    else message = "No key matches that payment ID and email. Check both and try again, or contact support.";
+    if (!found) message = "We couldn't find a key for that payment ID and email. Check both, or contact support.";
   }
-  const page = `<!doctype html><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+  const support = escapeHTML(env.SUPPORT_EMAIL ?? "");
+  const result = found ? (found.status === "active" ? `
+    <section class="result" aria-live="polite">
+      <div class="result-head"><span class="badge ok">✓ Paid</span><span class="muted">Your licence key</span></div>
+      <div class="key-row">
+        <code id="key">${escapeHTML(found.key)}</code>
+        <button type="button" class="copy" id="copy">Copy Key</button>
+      </div>
+      <ol class="steps">
+        <li>Open <b>Lemon</b> from the menu bar</li>
+        <li>Go to <b>Settings → Licence</b></li>
+        <li>Paste the key and click <b>Activate</b></li>
+      </ol>
+      <p class="muted small">Works on up to ${Number(env.ACTIVATION_LIMIT ?? 2)} Macs at once. Keep this key somewhere safe.</p>
+    </section>` : `
+    <section class="result" aria-live="polite">
+      <div class="result-head"><span class="badge off">Turned off</span><span class="muted">${escapeHTML(found.key)}</span></div>
+      <p class="small">This key no longer works, for example after a refund. Questions? <a href="mailto:${support}">${support}</a></p>
+    </section>`) : "";
+
+  const page = `<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="robots" content="noindex">
 <title>Find your Lemon key</title>
+<link rel="icon" href="/logo.png">
 <style>
-  :root { color-scheme: light dark; --accent: #f9b30d; }
-  body { font: 16px/1.5 -apple-system, system-ui, sans-serif; max-width: 460px; margin: 48px auto; padding: 0 16px; }
-  h1 { font-size: 26px; margin-bottom: 4px; } p.sub { color: GrayText; margin-top: 0; }
-  label { display: block; font-weight: 600; margin-top: 16px; }
-  input { width: 100%; box-sizing: border-box; font: inherit; padding: 10px 12px; border-radius: 10px; border: 1px solid #8886; }
-  button { margin-top: 20px; width: 100%; font: inherit; font-weight: 600; padding: 12px; border: 0; border-radius: 999px; background: var(--accent); color: #000; cursor: pointer; }
-  .key { font: 600 20px ui-monospace, monospace; padding: 16px; border-radius: 12px; background: #f9b30d22; text-align: center; user-select: all; word-break: break-all; }
-  .note { color: GrayText; font-size: 14px; } .error { color: #d33; }
+  :root {
+    --bg: #faf8f2; --card: #ffffff; --text: #1d1d1f; --muted: #6e6e73; --line: #e7e3d8;
+    --field: #f5f3ed; --accent: #ffd60a; --accent-deep: #f5b700; --ok: #1f9d55; --off: #c0392b;
+    --shadow: 0 1px 2px rgb(0 0 0 / 0.04), 0 12px 40px rgb(120 90 0 / 0.10);
+    color-scheme: light dark;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --bg: #0f0f10; --card: #1c1c1e; --text: #f5f5f7; --muted: #98989d; --line: #2c2c2e;
+      --field: #2a2a2d; --shadow: 0 1px 2px rgb(0 0 0 / 0.3), 0 20px 60px rgb(0 0 0 / 0.45);
+    }
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0; min-height: 100vh; display: grid; place-items: center; padding: 32px 16px;
+    font: 16px/1.5 -apple-system, BlinkMacSystemFont, "SF Pro Text", "Inter", system-ui, sans-serif;
+    color: var(--text); background: var(--bg);
+    background-image: radial-gradient(60rem 30rem at 50% -10%, rgb(255 214 10 / 0.22), transparent 70%);
+    -webkit-font-smoothing: antialiased;
+  }
+  main { width: 100%; max-width: 440px; }
+  .brand { display: flex; flex-direction: column; align-items: center; text-align: center; margin-bottom: 24px; }
+  .brand img { width: 104px; height: 104px; filter: drop-shadow(0 10px 24px rgb(245 183 0 / 0.28)); } /* the icon has its own shape */
+  .brand .name { margin-top: 12px; font-size: 13px; font-weight: 600; letter-spacing: 0.08em; text-transform: uppercase; color: var(--muted); }
+  h1 { margin: 4px 0 6px; font-size: 28px; line-height: 1.2; letter-spacing: -0.02em; }
+  .lead { margin: 0; color: var(--muted); }
+  .card { background: var(--card); border: 1px solid var(--line); border-radius: 20px; padding: 24px; box-shadow: var(--shadow); }
+  label { display: block; font-size: 14px; font-weight: 600; margin: 0 0 6px; }
+  .hint { font-weight: 400; color: var(--muted); }
+  input {
+    width: 100%; font: inherit; color: var(--text); background: var(--field);
+    border: 1px solid transparent; border-radius: 12px; padding: 12px 14px; margin-bottom: 16px;
+    transition: border-color .15s, box-shadow .15s, background .15s;
+  }
+  input::placeholder { color: var(--muted); opacity: .8; }
+  input:focus { outline: none; background: var(--card); border-color: var(--accent-deep); box-shadow: 0 0 0 4px rgb(255 214 10 / 0.25); }
+  .primary {
+    width: 100%; font: inherit; font-weight: 650; color: #1d1d1f; cursor: pointer;
+    background: linear-gradient(180deg, var(--accent), var(--accent-deep)); border: 0; border-radius: 999px; padding: 13px;
+    box-shadow: 0 6px 18px rgb(245 183 0 / 0.35); transition: transform .1s, filter .15s;
+  }
+  .primary:hover { filter: brightness(1.04); } .primary:active { transform: scale(0.99); }
+  .error { display: flex; gap: 10px; align-items: flex-start; margin: 0 0 16px; padding: 12px 14px; border-radius: 12px;
+    background: rgb(192 57 43 / 0.10); color: var(--off); font-size: 14px; }
+  .result { margin-bottom: 20px; padding: 18px; border-radius: 16px; background: rgb(255 214 10 / 0.12); border: 1px solid rgb(245 183 0 / 0.35); }
+  .result-head { display: flex; align-items: center; gap: 10px; margin-bottom: 12px; font-size: 14px; }
+  .badge { font-size: 12px; font-weight: 700; padding: 3px 10px; border-radius: 999px; }
+  .badge.ok { background: rgb(31 157 85 / 0.14); color: var(--ok); } .badge.off { background: rgb(192 57 43 / 0.14); color: var(--off); }
+  .key-row { display: flex; flex-direction: column; gap: 8px; }
+  code { font: 600 clamp(13px, 3.6vw, 16px)/1.4 ui-monospace, "SF Mono", Menlo, monospace; padding: 14px 10px; border-radius: 12px;
+    background: var(--card); border: 1px solid var(--line); text-align: center; white-space: nowrap; overflow-x: auto; user-select: all; }
+  .copy { font: inherit; font-size: 14px; font-weight: 600; cursor: pointer; padding: 10px 16px; border-radius: 12px; border: 1px solid var(--line);
+    background: var(--card); color: var(--text); }
+  .copy:hover { border-color: var(--accent-deep); }
+  .copy.done { color: var(--ok); border-color: var(--ok); }
+  .steps { margin: 16px 0 8px; padding-left: 22px; font-size: 14px; } .steps li { margin: 4px 0; }
+  .muted { color: var(--muted); } .small { font-size: 13px; margin: 0; }
+  details summary { cursor: pointer; font-size: 14px; color: var(--muted); list-style: none; text-align: center; }
+  details summary::-webkit-details-marker { display: none; }
+  details[open] summary { margin-bottom: 16px; }
+  footer { margin-top: 20px; text-align: center; font-size: 13px; color: var(--muted); }
+  a { color: inherit; text-decoration-color: var(--accent-deep); text-underline-offset: 3px; }
+  a:hover { color: var(--accent-deep); }
 </style>
-<h1>Find your Lemon key</h1>
-<p class="sub">Paid with Razorpay? Enter the payment ID from your Razorpay receipt (it starts with <b>pay_</b>) and the email you paid with.</p>
-${found ? `<p class="key">${escapeHTML(found.key)}</p>
-<p class="note">${found.status === "active"
-      ? "Open Lemon → Settings → Licence, paste this key and click Activate."
-      : "This key has been turned off (for example after a refund)."}</p>` : ""}
-${message ? `<p class="error">${escapeHTML(message)}</p>` : ""}
-<form method="post">
-  <label for="p">Payment ID</label><input id="p" name="payment_id" placeholder="pay_…" required autocomplete="off">
-  <label for="e">Email</label><input id="e" name="email" type="email" placeholder="you@example.com" required>
-  <button>Show My Key</button>
-</form>
-<p class="note">Need help? <a href="mailto:${escapeHTML(env.SUPPORT_EMAIL ?? "")}">${escapeHTML(env.SUPPORT_EMAIL ?? "")}</a></p>`;
-  return new Response(page, { headers: { "Content-Type": "text/html; charset=utf-8" } });
+</head>
+<body>
+<main>
+  <header class="brand">
+    <img src="/logo.png" alt="Lemon" width="104" height="104">
+    <div class="name">Lemon for Mac</div>
+    <h1>${found ? "Here's your key" : "Find your licence key"}</h1>
+    <p class="lead">${found ? "Thanks for buying Lemon." : "Paid with UPI or Razorpay? Enter your payment details to get your key."}</p>
+  </header>
+
+  <div class="card">
+    ${result}
+    ${message ? `<p class="error" role="alert"><span aria-hidden="true">⚠︎</span><span>${escapeHTML(message)}</span></p>` : ""}
+    ${found ? `<details><summary>Look up another purchase</summary>` : ""}
+    <form method="post">
+      <label for="p">Payment ID <span class="hint">· on your Razorpay receipt, starts with pay_</span></label>
+      <input id="p" name="payment_id" placeholder="pay_XXXXXXXXXXXXXX" value="${escapeHTML(paymentID)}" required autocomplete="off" spellcheck="false">
+      <label for="e">Email <span class="hint">· the one you paid with</span></label>
+      <input id="e" name="email" type="email" placeholder="you@example.com" value="${escapeHTML(email)}" required autocomplete="email">
+      <button class="primary">Show My Key</button>
+    </form>
+    ${found ? `</details>` : ""}
+  </div>
+
+  <footer>Need help? <a href="mailto:${support}">${support}</a></footer>
+</main>
+<script>
+  const copy = document.getElementById("copy");
+  if (copy) copy.addEventListener("click", async () => {
+    try { await navigator.clipboard.writeText(document.getElementById("key").textContent); copy.textContent = "Copied ✓"; copy.classList.add("done"); }
+    catch { getSelection().selectAllChildren(document.getElementById("key")); }
+  });
+</script>
+</body>
+</html>`;
+  return new Response(page, { headers: { "Content-Type": "text/html; charset=utf-8", "Cache-Control": "no-store" } });
 }
 
 // MARK: Licence API (same shape as https://docs.lemonsqueezy.com/api/license-api)
@@ -215,6 +323,11 @@ async function admin(request, env) {
 }
 
 // MARK: Helpers
+
+function logo() {
+  const bytes = Uint8Array.from(atob(LOGO_PNG_BASE64), (c) => c.charCodeAt(0));
+  return new Response(bytes, { headers: { "Content-Type": "image/png", "Cache-Control": "public, max-age=86400" } });
+}
 
 function json(value, status = 200) {
   return new Response(JSON.stringify(value), { status, headers: { "Content-Type": "application/json" } });

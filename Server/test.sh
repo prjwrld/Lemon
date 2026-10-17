@@ -6,11 +6,12 @@
 set -u
 cd "${0:a:h}"
 URL=http://localhost:8787; SECRET=test-webhook-secret; ADMIN=test-admin-token
+PRICE=$(sed -n 's/^PRICE_PAISE = "\([0-9]*\)"/\1/p' wrangler.toml)   # the price the server accepts
 pass=0; fail=0
 check() { if [[ "$2" == "$3" ]]; then echo "  ✓ $1"; ((pass++)); else echo "  ✗ $1 (expected '$3', got '$2')"; ((fail++)); fi; }
 sign() { printf '%s' "$1" | openssl dgst -sha256 -hmac "$SECRET" | awk '{print $NF}'; }
 webhook() { curl -s -o /tmp/lemon-wh.json -w '%{http_code}' -X POST $URL/razorpay/webhook -H "Content-Type: application/json" -H "X-Razorpay-Signature: ${2:-$(sign "$1")}" --data-binary "$1"; }
-paid() { echo "{\"event\":\"payment.captured\",\"payload\":{\"payment\":{\"entity\":{\"id\":\"$1\",\"amount\":${2:-49900},\"currency\":\"${3:-INR}\",\"email\":\"Buyer@Example.com\"}}}}"; }
+paid() { echo "{\"event\":\"payment.captured\",\"payload\":{\"payment\":{\"entity\":{\"id\":\"$1\",\"amount\":${2:-$PRICE},\"currency\":\"${3:-INR}\",\"email\":\"Buyer@Example.com\"}}}}"; }
 api() { curl -s -X POST $URL/v1/licenses/$1 -H "Accept: application/json" "${@:2}"; }
 field() { python3 -c "import json,sys; d=json.load(sys.stdin); print(eval('d'+sys.argv[1]))" "$1" 2>/dev/null; }
 admin_list() { curl -s $URL/admin/keys -H "Authorization: Bearer $ADMIN"; }
@@ -32,7 +33,7 @@ check "one key made" "$(count_keys)" 1
 check "same notice again (Razorpay retry) accepted" "$(webhook "$(paid pay_TEST1)")" 200
 check "still only one key: no duplicate" "$(count_keys)" 1
 webhook "$(paid pay_WRONGAMT 100)" >/dev/null
-webhook "$(paid pay_WRONGCUR 49900 USD)" >/dev/null
+webhook "$(paid pay_WRONGCUR $PRICE USD)" >/dev/null
 check "wrong amount or currency makes no key" "$(count_keys)" 1
 KEY=$(key_for pay_TEST1)
 check "key looks right" "$([[ $KEY =~ '^LEMON-([A-HJ-NP-Z2-9]{5}-){3}[A-HJ-NP-Z2-9]{5}$' ]] && echo yes)" yes
