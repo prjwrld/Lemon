@@ -6,10 +6,11 @@ import SwiftUI
 enum WelcomeWindow {
     private static var window: GlassWindow?
 
-    static func show() {
+    /// `step` starts the tour part-way through (used by the debug demo option).
+    static func show(step: Int = 0) {
         if let window { window.present(); return }
-        let window = GlassWindow(size: CGSize(width: 560, height: 500)) {
-            WelcomeView(onClose: { WelcomeWindow.window?.close() })
+        let window = GlassWindow(size: CGSize(width: 660, height: 560)) {
+            WelcomeView(onClose: { WelcomeWindow.window?.close() }, startStep: step)
         }
         window.onClose = {
             WelcomeWindow.window = nil
@@ -23,101 +24,268 @@ enum WelcomeWindow {
 struct WelcomeView: View {
     let onClose: () -> Void
 
-    @State private var step = 0
+    init(onClose: @escaping () -> Void, startStep: Int = 0) {
+        self.onClose = onClose
+        _step = State(initialValue: Step(rawValue: startStep) ?? .welcome)
+    }
+
+    private enum Step: Int, CaseIterable {
+        case welcome, convert, tools, saving, done
+        var name: String {
+            switch self {
+            case .welcome: "Welcome"
+            case .convert: "Convert"
+            case .tools: "Tools"
+            case .saving: "Saving"
+            case .done: "Done"
+            }
+        }
+    }
+
+    @State private var step: Step
     @State private var settings = AppSettings.shared
+    @State private var license = LicenseManager.shared
     @State private var jobs = JobCenter.shared
     @State private var practicePhoto: URL?
     @State private var launchAtLogin = SMAppService.mainApp.status == .enabled
-
-    private let titles = ["Convert with a drag", "Tools with a different key", "Where your files go", "Lemon lives in the menu bar"]
+    /// Jobs that already existed when the current step opened, so each practice step
+    /// only celebrates its own result.
+    @State private var knownJobs: Set<UUID> = []
+    /// The practice result for each step. Kept here because finished jobs leave the job list.
+    @State private var results: [Step: URL] = [:]
 
     var body: some View {
-        GlassShell(title: "Welcome to Lemon", subtitle: "Step \(step + 1) of 4", onClose: onClose) {
-            VStack(spacing: 16) {
-                Text(titles[step]).font(.title.bold())
+        GlassShell(title: "Welcome to Lemon", subtitle: "Step \(step.rawValue + 1) of \(Step.allCases.count)", onClose: onClose) {
+            VStack(spacing: 18) {
+                progress
                 Group {
                     switch step {
-                    case 0: practice(keys: settings.convertShortcut.label, target: "PNG", result: "a PNG copy")
-                    case 1: practice(keys: settings.toolsShortcut.label, target: "Crop or Compress", result: "a cropped or smaller copy")
-                    case 2: savingStep
-                    default: menuBarStep
+                    case .welcome: welcomeStep
+                    case .convert: practiceStep(keys: settings.convertShortcut, target: "PNG",
+                                                title: "Try it: convert a photo")
+                    case .tools: practiceStep(keys: settings.toolsShortcut, target: "Crop or Compress",
+                                              title: "Try it: edit with a tool")
+                    case .saving: savingStep
+                    case .done: doneStep
                     }
                 }
-                .frame(maxHeight: .infinity)
-                HStack(spacing: 6) {
-                    ForEach(0..<4) { Circle().fill($0 == step ? Color.lemonDeep : .secondary.opacity(0.4)).frame(width: 7, height: 7) }
-                }
+                .frame(maxWidth: .infinity, maxHeight: .infinity)
+                .transition(.opacity)
+                .id(step)
             }
         } footer: {
             HStack {
-                if step > 0 { Button("Back") { step -= 1 }.buttonStyle(.glass) }
+                if step != .done {
+                    Button("Skip Tour", action: onClose).buttonStyle(.plain).foregroundStyle(.secondary)
+                }
                 Spacer()
-                Button(step == 3 ? "Start Using Lemon" : "Next") {
-                    if step == 3 { onClose() } else { step += 1 }
+                if step != .welcome {
+                    Button("Back") { move(-1) }.buttonStyle(.glass)
+                }
+                Button(step == .done ? "Start Using Lemon" : "Continue") {
+                    if step == .done { onClose() } else { move(1) }
                 }
                 .buttonStyle(.glassProminent).tint(.lemonDeep).keyboardShortcut(.defaultAction)
             }
             .controlSize(.large)
         }
         .task { practicePhoto = makePracticePhoto() }
+        .onChange(of: newPracticeResult) {
+            if let url = newPracticeResult, step == .convert || step == .tools { results[step] = url }
+        }
+    }
+
+    private func move(_ by: Int) {
+        guard let next = Step(rawValue: step.rawValue + by) else { return }
+        knownJobs = Set(jobs.jobs.map(\.id))
+        withAnimation(.easeInOut(duration: 0.2)) { step = next }
+    }
+
+    // MARK: Progress
+
+    private var progress: some View {
+        HStack(spacing: 6) {
+            ForEach(Step.allCases, id: \.self) { item in
+                VStack(spacing: 5) {
+                    Capsule()
+                        .fill(item.rawValue <= step.rawValue ? Color.lemonDeep : Color.secondary.opacity(0.25))
+                        .frame(height: 4)
+                    Text(item.name)
+                        .font(.caption2.weight(item == step ? .semibold : .regular))
+                        .foregroundStyle(item == step ? .primary : .secondary)
+                }
+            }
+        }
     }
 
     // MARK: Steps
 
-    private func practice(keys: String, target: String, result: String) -> some View {
-        VStack(spacing: 14) {
-            Text("Start dragging this photo, then hold **\(keys)**. Drop it on **\(target)**.")
-                .multilineTextAlignment(.center)
-            if let practicePhoto {
-                VStack(spacing: 6) {
-                    Image(nsImage: NSImage(contentsOf: practicePhoto) ?? NSImage())
-                        .resizable().scaledToFit().frame(width: 150, height: 110)
-                        .clipShape(.rect(cornerRadius: 12)).shadow(radius: 6)
-                    Text(practicePhoto.lastPathComponent).font(.caption)
-                }
-                .onDrag { NSItemProvider(object: practicePhoto as NSURL) }
-                .help("Drag me")
+    private var welcomeStep: some View {
+        VStack(spacing: 18) {
+            Image(nsImage: NSApp.applicationIconImage).resizable().frame(width: 112, height: 112)
+            VStack(spacing: 6) {
+                Text("Convert and edit files by dragging them").font(.title.bold()).multilineTextAlignment(.center)
+                Text("No windows to open, no files to upload. Drag, hold a key, drop.")
+                    .foregroundStyle(.secondary).multilineTextAlignment(.center)
             }
-            if let saved = latestPracticeResult {
-                Label("It worked! Lemon saved \(saved.lastPathComponent).", systemImage: "checkmark.circle.fill")
-                    .foregroundStyle(.green)
+            VStack(alignment: .leading, spacing: 12) {
+                promise("hand.draw.fill", "Works with files from Finder, the desktop and any app you can drag from.")
+                promise("doc.on.doc.fill", "Your originals are never changed. Lemon always saves a new copy.")
+                promise("lock.shield.fill", "Everything happens on your Mac. Your files never leave it.")
+            }
+            .padding(16)
+            .glassEffect(.regular, in: .rect(cornerRadius: 16))
+        }
+    }
+
+    private func practiceStep(keys: DragShortcut, target: String, title: String) -> some View {
+        VStack(spacing: 16) {
+            Text(title).font(.title2.bold())
+            HStack(alignment: .center, spacing: 22) {
+                if let practicePhoto {
+                    VStack(spacing: 6) {
+                        Image(nsImage: NSImage(contentsOf: practicePhoto) ?? NSImage())
+                            .resizable().scaledToFit().frame(width: 150, height: 106)
+                            .clipShape(.rect(cornerRadius: 12)).shadow(color: .black.opacity(0.25), radius: 8, y: 4)
+                        Label("Drag me", systemImage: "hand.point.up.left.fill").font(.caption.weight(.medium))
+                    }
+                    .onDrag { NSItemProvider(object: practicePhoto as NSURL) }
+                    .help("Start dragging this photo")
+                }
+                VStack(alignment: .leading, spacing: 12) {
+                    instruction(1, Text("Start dragging the photo."))
+                    HStack(spacing: 8) {
+                        instruction(2, Text("While dragging, hold"))
+                        KeyCaps(shortcut: keys)
+                    }
+                    instruction(3, Text("Drop it on **\(target)**."))
+                }
+            }
+            .padding(18)
+            .frame(maxWidth: .infinity)
+            .glassEffect(.regular, in: .rect(cornerRadius: 16))
+
+            if let saved = results[step] {
+                Label("It worked! Lemon saved “\(saved.lastPathComponent)”.", systemImage: "checkmark.circle.fill")
+                    .font(.headline).foregroundStyle(.green)
+                Button("Show in Finder") { NSWorkspace.shared.activateFileViewerSelecting([saved]) }.buttonStyle(.glass)
             } else {
-                Text("Lemon will save \(result) next to the original.")
+                Text("Let go of the keys and the wheel closes. This practice photo doesn't use up your free uses.")
                     .font(.caption).foregroundStyle(.secondary).multilineTextAlignment(.center)
             }
         }
     }
 
     private var savingStep: some View {
-        VStack(alignment: .leading, spacing: 12) {
-            Label("Results are saved next to the original file, as new copies.", systemImage: "doc.on.doc")
-            Label("Your originals are never changed. A taken name gets a number: “photo 2.png”.", systemImage: "lock.doc")
-            Label("macOS may ask once before Lemon saves into Desktop, Documents or Downloads. Click Allow.", systemImage: "hand.raised")
-            Label("Everything happens on your Mac. Nothing is uploaded.", systemImage: "lock.shield")
-            Button("Choose a Different Folder…") { SettingsWindow.show(tab: .folders) }.buttonStyle(.glass)
+        VStack(spacing: 18) {
+            Text("New files appear next to the original").font(.title2.bold())
+            HStack(spacing: 16) {
+                fileIcon("photo.heic", highlighted: false)
+                Image(systemName: "arrow.right").font(.title2.weight(.semibold)).foregroundStyle(Color.lemonDeep)
+                HStack(spacing: 10) {
+                    fileIcon("photo.heic", highlighted: false)
+                    fileIcon("photo.png", highlighted: true)
+                }
+                .padding(10)
+                .background(.quaternary.opacity(0.5), in: .rect(cornerRadius: 12))
+            }
+            VStack(alignment: .leading, spacing: 12) {
+                promise("lock.doc.fill", "The original stays exactly as it was.")
+                promise("number", "If a name is taken, Lemon adds a number: “photo 2.png”.")
+                promise("hand.raised.fill", "macOS may ask once before Lemon saves into Desktop, Documents or Downloads. Click Allow.")
+            }
+            .padding(16)
+            .glassEffect(.regular, in: .rect(cornerRadius: 16))
+            Button("Save to a Different Folder…") { SettingsWindow.show(tab: .saving) }.buttonStyle(.glass)
         }
-        .labelStyle(WelcomeLabelStyle())
     }
 
-    private var menuBarStep: some View {
-        VStack(alignment: .leading, spacing: 12) {
-            Label("Click Lemon's icon in the menu bar for Settings, your last result, and the tour.",
-                  systemImage: "menubar.arrow.up.rectangle")
-            Toggle("Open Lemon when I log in", isOn: $launchAtLogin)
+    private var doneStep: some View {
+        VStack(spacing: 18) {
+            Text("Lemon lives in the menu bar").font(.title2.bold())
+            HStack(spacing: 14) {
+                Text("Settings, your last result and this tour are always one click away:")
+                    .font(.callout).foregroundStyle(.secondary)
+                HStack(spacing: 10) {
+                    Image(systemName: "wifi").foregroundStyle(.secondary)
+                    Image("MenuBarIcon")
+                        .padding(4)
+                        .background(Color.primary.opacity(0.15), in: .rect(cornerRadius: 5))
+                    Text("9:41").font(.callout.monospacedDigit()).foregroundStyle(.secondary)
+                }
+                .padding(.horizontal, 12).padding(.vertical, 6)
+                .glassEffect(.regular, in: .capsule)
+            }
+            VStack(alignment: .leading, spacing: 14) {
+                HStack {
+                    VStack(alignment: .leading, spacing: 2) {
+                        Text("Open Lemon when you log in")
+                        Text("So the wheel is always ready.").font(.caption).foregroundStyle(.secondary)
+                    }
+                    Spacer()
+                    Toggle("Open Lemon when you log in", isOn: $launchAtLogin).labelsHidden().toggleStyle(.switch)
+                }
                 .onChange(of: launchAtLogin) {
                     try? launchAtLogin ? SMAppService.mainApp.register() : SMAppService.mainApp.unregister()
                 }
-            Label("Lemon is free and open source. Found a bug or have an idea? Tell us on GitHub.",
-                  systemImage: "heart")
-            Button("Open Lemon on GitHub") { NSWorkspace.shared.open(ProjectInfo.repositoryURL) }.buttonStyle(.glass)
+                Divider()
+                if license.isLicensed {
+                    Label("Lemon is activated on this Mac. Thank you!", systemImage: "checkmark.seal.fill")
+                        .foregroundStyle(.green)
+                } else {
+                    Label {
+                        Text(license.usesLeft == 0
+                             ? "Your free uses are used up. Buy Lemon once to keep using it."
+                             : "You have **\(license.usesLeft) free uses**. After that, buy Lemon once to keep using it.")
+                    } icon: {
+                        Image(systemName: "gift.fill").foregroundStyle(Color.lemonDeep)
+                    }
+                    HStack {
+                        Button("Buy Lemon") { NSWorkspace.shared.open(StoreConfig.checkoutURL) }.buttonStyle(.glass)
+                        Button("I Have a Licence Key") { SettingsWindow.show(tab: .licence) }.buttonStyle(.glass)
+                    }
+                }
+            }
+            .padding(16)
+            .frame(maxWidth: .infinity, alignment: .leading)
+            .glassEffect(.regular, in: .rect(cornerRadius: 16))
         }
-        .labelStyle(WelcomeLabelStyle())
+    }
+
+    // MARK: Pieces
+
+    private func promise(_ symbol: String, _ text: String) -> some View {
+        Label { Text(text) } icon: { Image(systemName: symbol).foregroundStyle(Color.lemonDeep).frame(width: 22) }
+    }
+
+    private func instruction(_ number: Int, _ text: Text) -> some View {
+        HStack(spacing: 8) {
+            Text("\(number)")
+                .font(.caption.bold()).foregroundStyle(.black)
+                .frame(width: 20, height: 20)
+                .background(Color.lemon, in: .circle)
+            text
+        }
+    }
+
+    private func fileIcon(_ name: String, highlighted: Bool) -> some View {
+        VStack(spacing: 4) {
+            Image(systemName: "photo.fill")
+                .font(.system(size: 26))
+                .foregroundStyle(highlighted ? Color.lemonDeep : .secondary)
+                .frame(width: 52, height: 52)
+                .background(.background, in: .rect(cornerRadius: 8))
+                .overlay(RoundedRectangle(cornerRadius: 8).strokeBorder(highlighted ? Color.lemonDeep : Color.secondary.opacity(0.3),
+                                                                        lineWidth: highlighted ? 2 : 1))
+            Text(name).font(.caption)
+        }
     }
 
     // MARK: Practice files
 
-    private var latestPracticeResult: URL? {
-        for job in jobs.jobs.reversed() {
+    /// The newest practice result from a job that started after this step opened.
+    private var newPracticeResult: URL? {
+        for job in jobs.jobs.reversed() where !knownJobs.contains(job.id) {
             if case .finished(let urls) = job.state, let url = urls.first, Practice.contains(url) { return url }
         }
         return nil
@@ -136,14 +304,5 @@ struct WelcomeView: View {
         guard let image = context.makeImage() else { return nil }
         try? ImageEngine.write(image, to: url, format: .jpg, quality: 0.9)
         return url
-    }
-}
-
-private struct WelcomeLabelStyle: LabelStyle {
-    func makeBody(configuration: Configuration) -> some View {
-        HStack(alignment: .firstTextBaseline, spacing: 10) {
-            configuration.icon.foregroundStyle(Color.lemonDeep).frame(width: 22)
-            configuration.title
-        }
     }
 }

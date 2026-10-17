@@ -17,6 +17,7 @@ struct LemonApp: App {
 private struct MenuContent: View {
     let state: AppState
     @State private var settings = AppSettings.shared
+    @State private var license = LicenseManager.shared
 
     var body: some View {
         Text("Drag files and hold \(settings.convertShortcut.label) for formats")
@@ -35,8 +36,13 @@ private struct MenuContent: View {
 
         Divider()
 
+        if license.isLicensed {
+            Button("Licence…") { SettingsWindow.show(tab: .licence) }
+        } else {
+            Button("Buy Lemon… (\(license.statusText))") { PurchaseWindow.show() }
+        }
         Button("About Lemon") { SettingsWindow.show(tab: .about) }
-        Button("Report a Problem…") { NSWorkspace.shared.open(ProjectInfo.issuesURL) }
+        Button("Contact Support…") { NSWorkspace.shared.open(StoreConfig.supportURL) }
 
         Divider()
 
