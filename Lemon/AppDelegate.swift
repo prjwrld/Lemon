@@ -41,7 +41,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         watcher.start()
         hud.start()
 
-        let demo = ["LemonDemoWheel", "LemonDemoEditor", "LemonDemoSettings", "LemonDemoWelcome", "LemonDemoPurchase"].contains { UserDefaults.standard.object(forKey: $0) != nil }
+        let demo = ["LemonDemoWheel", "LemonDemoEditor", "LemonDemoSettings", "LemonDemoWelcome", "LemonDemoPurchase", "LemonTestConvert", "LemonTestActivate"].contains { UserDefaults.standard.object(forKey: $0) != nil }
         if !AppSettings.shared.hasSeenWelcome && !demo {
             WelcomeWindow.show()
         }
@@ -109,6 +109,23 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         }
         if defaults.bool(forKey: "LemonDemoPurchase") {
             PurchaseWindow.show(reason: "You've used all \(StoreConfig.freeUses) free uses. Buy Lemon once to keep going.")
+        }
+        // Test helpers for the free-use limit and licence keys (no dragging needed):
+        // "-LemonTestConvert /path/file -LemonTestFormat png" runs that wheel choice as if dropped;
+        // "-LemonTestActivate KEY" tries a licence key and logs the result.
+        if let path = defaults.string(forKey: "LemonTestConvert"),
+           let format = OutputFormat(rawValue: defaults.string(forKey: "LemonTestFormat") ?? "png") {
+            choose(.convert(format), files: [URL(fileURLWithPath: path)])
+        }
+        if let key = defaults.string(forKey: "LemonTestActivate") {
+            Task {
+                do {
+                    try await LicenseManager.shared.activate(key)
+                    NSLog("LemonTest activate: accepted")
+                } catch {
+                    NSLog("LemonTest activate: %@", error.localizedDescription)
+                }
+            }
         }
         guard defaults.bool(forKey: "LemonDemoWheel") || defaults.string(forKey: "LemonDemoEditor") != nil,
               let screen = NSScreen.main else { return }

@@ -95,14 +95,19 @@ final class LicenseManager {
         Keychain.delete("instanceID")
     }
 
-    /// Checks now and then that the key is still valid (e.g. not refunded). Offline is fine.
+    /// Checks that the key is still valid for this Mac: not made up, refunded, disabled,
+    /// deactivated from another place, or for a different product. If Lemon Squeezy says no,
+    /// the licence is removed. If it can't be reached (offline), the licence is kept.
     func revalidate() async {
         guard let key = licenseKey, let instanceID,
               let response = try? await post("validate", ["license_key": key, "instance_id": instanceID])
         else { return }
-        if response.valid == false, ["expired", "disabled"].contains(response.license_key?.status ?? "") {
+        let wrongProduct = StoreConfig.productID.map { response.meta?.product_id != $0 } ?? false
+        if response.valid == false || wrongProduct {
             licenseKey = nil
+            self.instanceID = nil
             Keychain.delete("licenseKey")
+            Keychain.delete("instanceID")
         }
     }
 

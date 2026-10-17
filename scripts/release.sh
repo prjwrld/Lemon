@@ -14,6 +14,12 @@ ARCHIVE=build/Lemon.xcarchive
 EXPORT=build/export
 ZIP=build/Lemon.zip
 
+# Don't ship with the placeholder store settings (any licence key would be accepted).
+if grep -qE 'productID: Int\? = nil|example\.(com|lemonsqueezy)' Lemon/Core/License.swift; then
+  echo "✗ Fill in StoreConfig in Lemon/Core/License.swift first (product ID, checkout link, website, support email)." >&2
+  exit 1
+fi
+
 rm -rf "$ARCHIVE" "$EXPORT" "$ZIP"
 echo "▸ Archiving (Release, Developer ID)…"
 xcodebuild -project Lemon.xcodeproj -scheme Lemon -configuration Release \
