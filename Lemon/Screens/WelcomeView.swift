@@ -134,7 +134,7 @@ struct WelcomeView: View {
                 promise("lock.shield.fill", "Everything happens on your Mac. Your files never leave it.")
             }
             .padding(16)
-            .glassEffect(.regular, in: .rect(cornerRadius: 16))
+            .card(cornerRadius: 16)
         }
     }
 
@@ -163,7 +163,7 @@ struct WelcomeView: View {
             }
             .padding(18)
             .frame(maxWidth: .infinity)
-            .glassEffect(.regular, in: .rect(cornerRadius: 16))
+            .card(cornerRadius: 16)
 
             if let saved = results[step] {
                 Label("It worked! Lemon saved “\(saved.lastPathComponent)”.", systemImage: "checkmark.circle.fill")
@@ -195,7 +195,7 @@ struct WelcomeView: View {
                 promise("hand.raised.fill", "macOS may ask once before Lemon saves into Desktop, Documents or Downloads. Click Allow.")
             }
             .padding(16)
-            .glassEffect(.regular, in: .rect(cornerRadius: 16))
+            .card(cornerRadius: 16)
             Button("Save to a Different Folder…") { SettingsWindow.show(tab: .saving) }.buttonStyle(.glass)
         }
     }
@@ -214,7 +214,7 @@ struct WelcomeView: View {
                     Text("9:41").font(.callout.monospacedDigit()).foregroundStyle(.secondary)
                 }
                 .padding(.horizontal, 12).padding(.vertical, 6)
-                .glassEffect(.regular, in: .capsule)
+                .background(Color.primary.opacity(0.06), in: .capsule)
             }
             VStack(alignment: .leading, spacing: 14) {
                 HStack {
@@ -248,7 +248,7 @@ struct WelcomeView: View {
             }
             .padding(16)
             .frame(maxWidth: .infinity, alignment: .leading)
-            .glassEffect(.regular, in: .rect(cornerRadius: 16))
+            .card(cornerRadius: 16)
         }
     }
 

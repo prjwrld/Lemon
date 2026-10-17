@@ -6,20 +6,25 @@ import SwiftUI
 final class GlassWindow: NSWindow {
     var onClose: (() -> Void)?
 
+    /// Clear room around the glass for its shadow. The shadow is drawn by SwiftUI so it follows the
+    /// rounded shape; macOS's own shadow for a borderless window is a rectangle with a hairline edge.
+    static let shadowMargin: CGFloat = 28
+
+    /// `size` is the size of the glass itself; the window is a little bigger to fit the shadow.
     init<Content: View>(size: CGSize, resizable: Bool = false, @ViewBuilder content: () -> Content) {
+        let margin = Self.shadowMargin
         super.init(
-            contentRect: NSRect(origin: .zero, size: size),
+            contentRect: NSRect(origin: .zero, size: CGSize(width: size.width + 2 * margin, height: size.height + 2 * margin)),
             styleMask: resizable ? [.borderless, .resizable, .fullSizeContentView] : [.borderless, .fullSizeContentView],
             backing: .buffered, defer: false)
         isOpaque = false
         backgroundColor = .clear
-        hasShadow = true
-        isMovableByWindowBackground = true
+        hasShadow = false
         isReleasedWhenClosed = false
         level = .floating
         collectionBehavior = [.fullScreenAuxiliary, .moveToActiveSpace]
-        minSize = CGSize(width: min(size.width, 420), height: min(size.height, 320))
-        contentView = NSHostingView(rootView: content())
+        minSize = CGSize(width: min(size.width, 420) + 2 * margin, height: min(size.height, 320) + 2 * margin)
+        contentView = NSHostingView(rootView: content().padding(margin))
         center()
     }
 
@@ -42,7 +47,7 @@ final class GlassWindow: NSWindow {
     }
 }
 
-/// The rounded glass shell: title and close button at the top, content, then actions at the bottom.
+/// The rounded window shell: title and close button at the top, content, then actions at the bottom.
 struct GlassShell<Content: View, Footer: View>: View {
     let title: String
     var subtitle: String?
@@ -74,10 +79,14 @@ struct GlassShell<Content: View, Footer: View>: View {
         }
         .padding(18)
         .frame(maxWidth: .infinity, maxHeight: .infinity)
-        // Big glass panels need more body than small controls (Apple's guidance), so the window
-        // colour is mixed in; this keeps text readable over busy windows behind it.
-        .glassEffect(.regular.tint(Color(nsColor: .windowBackgroundColor).opacity(0.72)), in: .rect(cornerRadius: 28))
-        .padding(1)
+        // Drag anywhere that isn't a control (buttons, fields and editor handles keep their own drags).
+        .contentShape(.rect(cornerRadius: 26))
+        .gesture(WindowDragGesture())
+        .allowsWindowActivationEvents(true)
+        // A solid window, like a normal Mac window: no see-through blur of whatever is behind it.
+        .background(Color(nsColor: .windowBackgroundColor), in: .rect(cornerRadius: 26))
+        .overlay(RoundedRectangle(cornerRadius: 26).strokeBorder(Color.primary.opacity(0.12)))
+        .shadow(color: .black.opacity(0.22), radius: 18, y: 8)
     }
 }
 
@@ -123,5 +132,13 @@ struct Checkerboard: View {
             }
         }
         .background(.white.opacity(0.9))
+    }
+}
+
+extension View {
+    /// A quiet raised card inside a window: a faint fill and a hairline edge (no see-through blur).
+    func card(cornerRadius: CGFloat = 16) -> some View {
+        background(Color.primary.opacity(0.05), in: .rect(cornerRadius: cornerRadius))
+            .overlay(RoundedRectangle(cornerRadius: cornerRadius).strokeBorder(Color.primary.opacity(0.08)))
     }
 }

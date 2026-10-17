@@ -45,7 +45,7 @@ struct PurchaseView: View {
                 }
                 LicencePanel()
                     .padding(16)
-                    .glassEffect(.regular, in: .rect(cornerRadius: 18))
+                    .card(cornerRadius: 18)
                 Spacer(minLength: 0)
             }
         } footer: {
