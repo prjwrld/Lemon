@@ -6,3 +6,8 @@ xcuserdata/
 Vendor/build/
 Vendor/bin/
 Vendor-build.log
+# Release DMGs (kept locally for delta updates; published from Updates/public)
+Updates/public/*.dmg
+Updates/public/*.delta
+Updates/public/old_updates/
+Server/node_modules/

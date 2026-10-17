@@ -42,6 +42,9 @@ private struct MenuContent: View {
             Button("Buy Lemon… (\(license.statusText))") { PurchaseWindow.show() }
         }
         Button("About Lemon") { SettingsWindow.show(tab: .about) }
+        if Updates.shared.isAvailable {
+            Button("Check for Updates…") { Updates.shared.checkNow() }
+        }
         Button("Contact Support…") { NSWorkspace.shared.open(StoreConfig.supportURL) }
 
         Divider()

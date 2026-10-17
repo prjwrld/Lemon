@@ -241,7 +241,7 @@ struct LicencePanel: View {
             VStack(alignment: .leading, spacing: 6) {
                 Text("Already bought Lemon?").font(.callout.weight(.medium))
                 HStack {
-                    TextField("Licence key", text: $key, prompt: Text("Licence key from your receipt email"))
+                    TextField("Licence key", text: $key, prompt: Text("Your licence key (LEMON-…)"))
                         .labelsHidden()
                         .textFieldStyle(.roundedBorder)
                         .onSubmit(activate)
@@ -253,7 +253,8 @@ struct LicencePanel: View {
                         .font(.caption).foregroundStyle(.red)
                 }
                 HStack(spacing: 4) {
-                    Text("Paid with UPI or Razorpay?").foregroundStyle(.secondary)
+                    Text(StoreConfig.lemonSqueezyEnabled ? "Paid with UPI or Razorpay?" : "Bought Lemon? Your key is waiting:")
+                        .foregroundStyle(.secondary)
                     Link("Find your key", destination: StoreConfig.keyLookupURL)
                 }
                 .font(.caption)
@@ -294,12 +295,17 @@ struct LicencePanel: View {
     }
 }
 
-/// The ways to pay. Macs set to the India region see Razorpay (UPI, Indian cards) first;
-/// everyone else sees Lemon Squeezy first. Both are one-time purchases.
+/// The ways to pay, all one-time. Razorpay takes UPI and Indian cards, and cards from other countries.
+/// With Lemon Squeezy switched on, Macs outside India see it first and Razorpay as the second choice.
 struct BuyButtons: View {
+    private var inIndia: Bool { Locale.current.region == .india }
+
     var body: some View {
         VStack(spacing: 8) {
-            if StoreConfig.prefersRazorpay {
+            if !StoreConfig.lemonSqueezyEnabled {
+                buy(inIndia ? "Buy with UPI or Card" : "Buy Lemon", price: StoreConfig.razorpayPriceText, url: StoreConfig.razorpayPageURL)
+                if !inIndia { Text("Cards from any country").font(.caption).foregroundStyle(.secondary) }
+            } else if StoreConfig.prefersRazorpay {
                 buy("Buy with UPI or Card", price: StoreConfig.razorpayPriceText, url: StoreConfig.razorpayPageURL)
                 other("Paying from outside India? Buy here", url: StoreConfig.checkoutURL)
             } else {

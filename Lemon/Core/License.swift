@@ -2,18 +2,22 @@ import AppKit
 import Observation
 import Security
 
-/// Every link and store detail Lemon uses, in one place. Fill these in before release
-/// (every "example" value is a placeholder):
-/// Lemon Squeezy → Products → your product → Share → copy the checkout link and the product ID.
+/// Every link and store detail Lemon uses, in one place.
+/// Lemon is sold through Razorpay (UPI and cards, from India and abroad). Lemon Squeezy is ready but switched off:
+/// to use it, set `lemonSqueezyEnabled` and fill in its checkout link and product ID (Lemon Squeezy → Products →
+/// your product → Share).
 enum StoreConfig {
+    /// Offer Lemon Squeezy as a second way to pay (outside India first). Off at launch.
+    static let lemonSqueezyEnabled = false
     static let checkoutURL = URL(string: "https://example.lemonsqueezy.com/buy/REPLACE-WITH-YOUR-CHECKOUT-ID")!
     /// Only keys for this product are accepted. Set it before release (nil accepts any product).
     static let productID: Int? = nil
     /// Shown on the Buy button, e.g. "$12". nil shows no price.
     static let priceText: String? = nil
-    static let websiteURL = URL(string: "https://example.com/lemon")!
-    static let privacyURL = URL(string: "https://example.com/lemon/privacy")!
-    static let termsURL = URL(string: "https://example.com/lemon/terms")!
+    static let websiteURL = URL(string: "https://fixbyai.in/lemon")!
+    static let privacyURL = URL(string: "https://fixbyai.in/lemon/privacy")!
+    static let termsURL = URL(string: "https://fixbyai.in/lemon/terms")!
+    static let refundsURL = URL(string: "https://fixbyai.in/lemon/refunds")!
     static let supportEmail = "support@fixbyai.in"
     static var supportURL: URL { URL(string: "mailto:\(supportEmail)")! }
     /// The exact FFmpeg source Lemon's media helper is built from (see scripts/build-ffmpeg.sh).
@@ -21,10 +25,10 @@ enum StoreConfig {
     /// How many conversions or tools people can use before buying.
     static let freeUses = 15
 
-    // MARK: India: Razorpay (see Server/README.md)
+    // MARK: Razorpay (see Server/README.md)
     /// Your Razorpay Payment Page for Lemon (one link many people can pay through).
     static let razorpayPageURL = URL(string: "https://rzp.io/rzp/uuLxRW7")!
-    /// Shown on the India Buy button, e.g. "₹499". nil shows no price.
+    /// Shown on the Buy button, e.g. "₹799". nil shows no price.
     static let razorpayPriceText: String? = "₹799"
     /// Lemon's own key server (Server/), which makes and checks the keys of Razorpay buyers.
     static let keyServerURL = URL(string: "https://lemon-licences.edupurspose.workers.dev")!
@@ -35,8 +39,8 @@ enum StoreConfig {
     /// all other keys come from Lemon Squeezy.
     static func isOwnServerKey(_ key: String) -> Bool { key.uppercased().hasPrefix("LEMON-") }
 
-    /// Shows the India (Razorpay) way to pay first on Macs set to the India region.
-    static var prefersRazorpay: Bool { Locale.current.region == .india }
+    /// With Lemon Squeezy on, Razorpay is shown first only on Macs set to the India region.
+    static var prefersRazorpay: Bool { !lemonSqueezyEnabled || Locale.current.region == .india }
     /// Where the main Buy button goes.
     static var preferredBuyURL: URL { prefersRazorpay ? razorpayPageURL : checkoutURL }
 }

@@ -52,6 +52,7 @@ struct PurchaseView: View {
             HStack(spacing: 16) {
                 Link("Privacy", destination: StoreConfig.privacyURL)
                 Link("Terms", destination: StoreConfig.termsURL)
+                Link("Refunds", destination: StoreConfig.refundsURL)
                 Link("Support", destination: StoreConfig.supportURL)
             }
             .font(.caption)

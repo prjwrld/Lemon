@@ -151,24 +151,82 @@ nonisolated struct RingSlice: Shape {
         func point(_ radius: CGFloat, _ angle: CGFloat) -> CGPoint {
             CGPoint(x: center.x + cos(angle) * radius, y: center.y + sin(angle) * radius)
         }
+        // A point inside the slice, to tell which side of each edge is inside.
+        let inside = point((r1 + r2) / 2, (o0 + o1 + i0 + i1) / 4)
+        let startSide = (inner: point(r1, i0), outer: point(r2, o0))
+        let endSide = (inner: point(r1, i1), outer: point(r2, o1))
 
-        // Corners are joined with addArc(tangent1End:...), which treats the curved
-        // edge as nearly straight near the corner. At this size it looks right.
+        // The four rounded corners, each exactly tangent to its straight side and to its circle,
+        // so the outline runs on smoothly with no kinks where a corner meets a curved edge.
+        let a = Self.fillet(side: startSide, toward: inside, circleRadius: r2, outer: true, radius: cOut, center: center)
+        let b = Self.fillet(side: endSide, toward: inside, circleRadius: r2, outer: true, radius: cOut, center: center)
+        let c = Self.fillet(side: endSide, toward: inside, circleRadius: r1, outer: false, radius: cIn, center: center)
+        let d = Self.fillet(side: startSide, toward: inside, circleRadius: r1, outer: false, radius: cIn, center: center)
+
         var path = Path()
-        path.move(to: CGPoint(x: (point(r1, i0).x + point(r2, o0).x) / 2,
-                              y: (point(r1, i0).y + point(r2, o0).y) / 2))
-        path.addArc(tangent1End: point(r2, o0), tangent2End: point(r2, o0 + 2 * cOut / r2), radius: cOut)
-        path.addArc(center: center, radius: r2,
-                    startAngle: .radians(o0 + cOut / r2), endAngle: .radians(o1 - cOut / r2),
+        path.move(to: a.onSide)
+        path.addArc(tangent1End: a.corner, tangent2End: a.onCircle, radius: cOut)
+        let outerStart = Self.angle(of: a.onCircle, from: center)
+        path.addArc(center: center, radius: r2, startAngle: .radians(outerStart),
+                    endAngle: .radians(outerStart + Self.turn(Self.angle(of: b.onCircle, from: center) - outerStart)),
                     clockwise: false)
-        path.addArc(tangent1End: point(r2, o1), tangent2End: point(r1, i1), radius: cOut)
-        path.addArc(tangent1End: point(r1, i1), tangent2End: point(r1, i1 - 2 * cIn / r1), radius: cIn)
-        path.addArc(center: center, radius: r1,
-                    startAngle: .radians(i1 - cIn / r1), endAngle: .radians(i0 + cIn / r1),
+        path.addArc(tangent1End: b.corner, tangent2End: b.onSide, radius: cOut)
+        path.addLine(to: c.onSide)
+        path.addArc(tangent1End: c.corner, tangent2End: c.onCircle, radius: cIn)
+        let innerStart = Self.angle(of: c.onCircle, from: center)
+        path.addArc(center: center, radius: r1, startAngle: .radians(innerStart),
+                    endAngle: .radians(innerStart - Self.turn(innerStart - Self.angle(of: d.onCircle, from: center))),
                     clockwise: true)
-        path.addArc(tangent1End: point(r1, i0), tangent2End: point(r2, o0), radius: cIn)
+        path.addArc(tangent1End: d.corner, tangent2End: d.onSide, radius: cIn)
         path.closeSubpath()
         return path
+    }
+
+    /// Where a rounded corner of radius `radius` touches a slice's straight side and one of its circles, and the
+    /// point where those two edges' tangents meet (what `addArc(tangent1End:tangent2End:radius:)` needs).
+    private struct Fillet { var onSide: CGPoint; var onCircle: CGPoint; var corner: CGPoint }
+
+    private static func fillet(side: (inner: CGPoint, outer: CGPoint), toward inside: CGPoint, circleRadius: CGFloat,
+                               outer: Bool, radius: CGFloat, center: CGPoint) -> Fillet {
+        let a = side.inner
+        var u = CGVector(dx: side.outer.x - a.x, dy: side.outer.y - a.y)
+        let length = max(hypot(u.dx, u.dy), 0.0001)
+        u = CGVector(dx: u.dx / length, dy: u.dy / length)
+        // The side's normal, pointing into the slice.
+        var n = CGVector(dx: -u.dy, dy: u.dx)
+        if n.dx * (inside.x - a.x) + n.dy * (inside.y - a.y) < 0 { n = CGVector(dx: -n.dx, dy: -n.dy) }
+
+        // The corner circle's centre: `radius` in from the side, and touching the slice's circle
+        // (inside the outer circle, outside the inner one).
+        let distance = outer ? circleRadius - radius : circleRadius + radius
+        let p = CGPoint(x: a.x + n.dx * radius - center.x, y: a.y + n.dy * radius - center.y)
+        let pu = p.x * u.dx + p.y * u.dy
+        let root = (pu * pu - (p.x * p.x + p.y * p.y - distance * distance)).squareRoot()
+        let end = outer ? side.outer : side.inner
+        let candidates = [-pu + root, -pu - root].map { t in
+            CGPoint(x: a.x + n.dx * radius + u.dx * t, y: a.y + n.dy * radius + u.dy * t)
+        }
+        let f = candidates.min { hypot($0.x - end.x, $0.y - end.y) < hypot($1.x - end.x, $1.y - end.y) }!
+
+        let onSide = CGPoint(x: f.x - n.dx * radius, y: f.y - n.dy * radius)
+        let scale = circleRadius / distance
+        let onCircle = CGPoint(x: center.x + (f.x - center.x) * scale, y: center.y + (f.y - center.y) * scale)
+        // Where the side meets the circle's tangent at `onCircle`.
+        let v = CGVector(dx: -(onCircle.y - center.y), dy: onCircle.x - center.x)
+        let det = u.dx * v.dy - u.dy * v.dx
+        let s = abs(det) < 0.0001 ? 0 : ((onCircle.x - a.x) * v.dy - (onCircle.y - a.y) * v.dx) / det
+        return Fillet(onSide: onSide, onCircle: onCircle, corner: CGPoint(x: a.x + u.dx * s, y: a.y + u.dy * s))
+    }
+
+    private static func angle(of point: CGPoint, from center: CGPoint) -> CGFloat {
+        atan2(point.y - center.y, point.x - center.x)
+    }
+
+    /// An angle brought into 0..<2π, so arcs always go the short way round in the right direction.
+    private static func turn(_ angle: CGFloat) -> CGFloat {
+        let full = 2 * CGFloat.pi
+        let wrapped = angle.truncatingRemainder(dividingBy: full)
+        return wrapped < 0 ? wrapped + full : wrapped
     }
 }
 

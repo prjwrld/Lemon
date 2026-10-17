@@ -46,6 +46,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         if !AppSettings.shared.hasSeenWelcome && !demo {
             WelcomeWindow.show()
         }
+        Updates.shared.start()
         // Confirm the licence at launch, then about once a day while Lemon runs.
         Task { await LicenseManager.shared.revalidate() }
         licenceTimer = Timer.scheduledTimer(withTimeInterval: 3 * 3600, repeats: true) { _ in

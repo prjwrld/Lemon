@@ -1,0 +1,10 @@
+# Where Lemon's downloads and updates are published: a static site (appcast.xml + signed, notarized DMGs) on
+# Cloudflare. scripts/release.sh fills public/ and deploys it; installed copies read public/appcast.xml once a day,
+# and fixbyai.in/lemon/download points at /Lemon.dmg (always the newest version, see public/_redirects).
+name = "lemon-updates"
+compatibility_date = "2026-09-01"
+workers_dev = true
+preview_urls = false
+
+[assets]
+directory = "./public"

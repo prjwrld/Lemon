@@ -56,7 +56,7 @@ struct SettingsView: View {
 
         var subtitle: String {
             switch self {
-            case .general: "How Lemon starts, sounds and looks."
+            case .general: "How Lemon starts, sounds, looks and updates."
             case .shortcuts: "The keys you hold while dragging files to open a wheel."
             case .formats: "How good the files Lemon makes should look and sound, and how big they can be."
             case .saving: "Where Lemon puts the new files it makes."
@@ -130,6 +130,7 @@ struct SettingsView: View {
 
 private struct GeneralPage: View {
     @State private var settings = AppSettings.shared
+    @State private var updates = Updates.shared
     @State private var launchAtLogin = SMAppService.mainApp.status == .enabled
     @State private var loginError: String?
 
@@ -157,6 +158,19 @@ private struct GeneralPage: View {
                     Spacer()
                 }
                 .padding(.vertical, 4)
+            }
+            if updates.isAvailable {
+                Section("Updates") {
+                    Toggle(isOn: $updates.automatic) {
+                        Text("Install updates automatically")
+                        Text("Lemon checks once a day and installs new versions when it quits.")
+                    }
+                    LabeledContent {
+                        Button("Check Now") { updates.checkNow() }
+                    } label: {
+                        Text("Lemon \(updates.version)")
+                    }
+                }
             }
             Section {
                 LabeledContent {
@@ -488,6 +502,7 @@ private struct LicencePage: View {
                 HStack(spacing: 16) {
                     Link("Privacy", destination: StoreConfig.privacyURL)
                     Link("Terms", destination: StoreConfig.termsURL)
+                    Link("Refunds", destination: StoreConfig.refundsURL)
                     Link("Contact Support", destination: StoreConfig.supportURL)
                 }
                 .font(.callout)
@@ -521,6 +536,9 @@ private struct AboutPage: View {
                 HStack {
                     Link(destination: StoreConfig.websiteURL) { Label("Website", systemImage: "safari") }
                     Link(destination: StoreConfig.supportURL) { Label("Contact Support", systemImage: "envelope") }
+                    if Updates.shared.isAvailable {
+                        Button { Updates.shared.checkNow() } label: { Label("Check for Updates", systemImage: "arrow.down.circle") }
+                    }
                 }
                 .buttonStyle(.glass)
                 Label("Your files never leave your Mac. Lemon goes online only to check your licence key.",

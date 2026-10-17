@@ -1,0 +1,19 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<!-- Keys Xcode can't set from build settings; merged with the generated Info.plist.
+     Automatic updates (Sparkle): where Lemon looks for new versions, and the public half of the update-signing
+     key (the private half is in the Keychain, account "lemon"; scripts/release.sh signs each update with it). -->
+<plist version="1.0">
+<dict>
+	<key>SUFeedURL</key>
+	<string>https://lemon-updates.edupurspose.workers.dev/appcast.xml</string>
+	<key>SUPublicEDKey</key>
+	<string>PJ9jvXYQex931+jW6w2Q4Jq7wJ1Q6hWjQQaNUV29wNA=</string>
+	<key>SUEnableAutomaticChecks</key>
+	<true/>
+	<key>SUAutomaticallyUpdate</key>
+	<true/>
+	<key>SUScheduledCheckInterval</key>
+	<integer>86400</integer>
+</dict>
+</plist>
