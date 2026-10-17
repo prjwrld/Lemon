@@ -22,4 +22,4 @@ EMAIL_FROM = "Lemon <keys@example.com>"
 [[d1_databases]]
 binding = "DB"
 database_name = "lemon-licences"
-database_id = "REPLACE-WITH-ID-FROM-wrangler-d1-create"
+database_id = "c1f4e5f4-3077-4626-aac8-969a4ef67508"

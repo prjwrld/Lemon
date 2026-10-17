@@ -27,7 +27,7 @@ enum StoreConfig {
     /// Shown on the India Buy button, e.g. "₹499". nil shows no price.
     static let razorpayPriceText: String? = nil
     /// Lemon's own key server (Server/), which makes and checks the keys of Razorpay buyers.
-    static let keyServerURL = URL(string: "https://lemon-licences.REPLACE-WITH-YOUR-SUBDOMAIN.workers.dev")!
+    static let keyServerURL = URL(string: "https://lemon-licences.edupurspose.workers.dev")!
     /// "Find my key" page on the key server, for Razorpay buyers.
     static var keyLookupURL: URL { keyServerURL.appendingPathComponent("key") }
 
