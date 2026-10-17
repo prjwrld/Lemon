@@ -45,10 +45,18 @@ async function razorpayWebhook(request, env, ctx) {
 
   if (event.event === "payment.captured") {
     const payment = event.payload?.payment?.entity ?? {};
+    const notes = payment.notes && typeof payment.notes === "object" && !Array.isArray(payment.notes) ? payment.notes : {};
+    // What identifies the payment (no personal details), to see in `wrangler tail`.
+    console.log("payment.captured", JSON.stringify({ id: payment.id, amount: payment.amount, description: payment.description,
+      order: payment.order_id, invoice: payment.invoice_id, noteKeys: Object.keys(notes) }));
     // Only Lemon's price in rupees makes a key, so other sales on the same Razorpay account don't.
     if (payment.currency !== "INR" || payment.amount !== Number(env.PRICE_PAISE) || !payment.id) {
       return json({ ok: true, ignored: "Not a Lemon purchase (amount or currency differ)." });
     }
+    // Other apps on this Razorpay account (Secret Santa, Rightly) also sell at this price. Their checkouts tag
+    // payments with these notes; a Lemon Payment Page payment never has them.
+    const otherApp = ["app", "skuId", "kind", "uid", "plan", "offer", "user"].find((name) => name in notes);
+    if (otherApp) return json({ ok: true, ignored: `Another app's payment (has "${otherApp}" in its notes).` });
     const { key, created } = await createLicence(env, payment.id, payment.email ?? "", payment.amount);
     if (created && payment.email && env.RESEND_API_KEY) ctx.waitUntil(emailKey(env, payment.email, key, payment.id));
     return json({ ok: true, created });

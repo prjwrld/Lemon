@@ -35,6 +35,11 @@ check "still only one key: no duplicate" "$(count_keys)" 1
 webhook "$(paid pay_WRONGAMT 100)" >/dev/null
 webhook "$(paid pay_WRONGCUR $PRICE USD)" >/dev/null
 check "wrong amount or currency makes no key" "$(count_keys)" 1
+OTHER="{\"event\":\"payment.captured\",\"payload\":{\"payment\":{\"entity\":{\"id\":\"pay_SANTA\",\"amount\":$PRICE,\"currency\":\"INR\",\"email\":\"x@example.com\",\"description\":\"Pro (300 credits)\",\"notes\":{\"kind\":\"pack\",\"skuId\":\"pack_300\"}}}}}"
+webhook "$OTHER" >/dev/null
+RIGHTLY="{\"event\":\"payment.captured\",\"payload\":{\"payment\":{\"entity\":{\"id\":\"pay_RIGHTLY\",\"amount\":$PRICE,\"currency\":\"INR\",\"email\":\"x@example.com\",\"notes\":{\"app\":\"rightly\"}}}}}"
+webhook "$RIGHTLY" >/dev/null
+check "Secret Santa / Rightly payment at the same price makes no key" "$(count_keys)" 1
 KEY=$(key_for pay_TEST1)
 check "key looks right" "$([[ $KEY =~ '^LEMON-([A-HJ-NP-Z2-9]{5}-){3}[A-HJ-NP-Z2-9]{5}$' ]] && echo yes)" yes
 
