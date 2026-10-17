@@ -7,7 +7,7 @@ struct LemonApp: App {
     @NSApplicationDelegateAdaptor(AppDelegate.self) private var appDelegate
 
     var body: some Scene {
-        MenuBarExtra("Lemon", systemImage: "arrow.triangle.2.circlepath.circle") {
+        MenuBarExtra("Lemon", image: "MenuBarIcon") {
             MenuContent(state: appDelegate.state)
         }
     }
