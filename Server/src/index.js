@@ -143,7 +143,7 @@ async function findMyKey(request, env) {
         <button type="button" class="copy" id="copy">Copy Key</button>
       </div>
       <ol class="steps">
-        <li>Open <b>Lemon</b> from the menu bar</li>
+        <li>Open <b>Lemon</b> from the menu bar (not installed yet? <a href="https://fixbyai.in/lemon/download">Download it</a>)</li>
         <li>Go to <b>Settings → Licence</b></li>
         <li>Paste the key and click <b>Activate</b></li>
       </ol>
@@ -251,7 +251,10 @@ async function findMyKey(request, env) {
     ${found ? `</details>` : ""}
   </div>
 
-  <footer>Need help? <a href="mailto:${support}">${support}</a></footer>
+  <footer>
+    <a href="https://fixbyai.in/lemon">Lemon</a> · <a href="https://fixbyai.in/lemon/download">Download</a> ·
+    <a href="https://fixbyai.in/lemon/refunds">Refunds</a> · Help: <a href="mailto:${support}">${support}</a>
+  </footer>
 </main>
 <script>
   const copy = document.getElementById("copy");
