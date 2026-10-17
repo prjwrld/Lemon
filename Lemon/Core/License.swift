@@ -23,7 +23,7 @@ enum StoreConfig {
 
     // MARK: India: Razorpay (see Server/README.md)
     /// Your Razorpay Payment Page for Lemon (one link many people can pay through).
-    static let razorpayPageURL = URL(string: "https://pages.razorpay.com/REPLACE-WITH-YOUR-PAGE")!
+    static let razorpayPageURL = URL(string: "https://rzp.io/rzp/uuLxRW7")!
     /// Shown on the India Buy button, e.g. "₹499". nil shows no price.
     static let razorpayPriceText: String? = "₹799"
     /// Lemon's own key server (Server/), which makes and checks the keys of Razorpay buyers.
