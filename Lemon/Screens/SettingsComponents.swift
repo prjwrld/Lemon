@@ -142,12 +142,13 @@ struct LicenceBadge: View {
     var body: some View {
         Button(action: onOpen) {
             HStack(spacing: 8) {
-                Image(systemName: license.isLicensed ? "checkmark.seal.fill" : "gift.fill")
-                    .foregroundStyle(license.isLicensed ? Color.green : Color.lemonDeep)
+                Image(systemName: !license.isLicensed ? "gift.fill" : license.needsOnlineCheck ? "wifi.exclamationmark" : "checkmark.seal.fill")
+                    .foregroundStyle(!license.isLicensed ? Color.lemonDeep : license.needsOnlineCheck ? Color.orange : Color.green)
                 VStack(alignment: .leading, spacing: 1) {
-                    Text(license.isLicensed ? "Licensed" : license.statusText).font(.caption.weight(.semibold))
+                    Text(license.statusText).font(.caption.weight(.semibold))
                         .lineLimit(1).fixedSize()
                     if !license.isLicensed { Text("Buy Lemon").font(.caption2).foregroundStyle(.secondary) }
+                    if license.needsOnlineCheck { Text("Check Now").font(.caption2).foregroundStyle(.secondary) }
                 }
                 Spacer(minLength: 0)
             }
@@ -175,19 +176,41 @@ struct LicencePanel: View {
 
     // MARK: Licensed
 
+    @State private var checkMessage: String?
+
     private var licensed: some View {
         VStack(spacing: 12) {
-            Label("Lemon is activated on this Mac", systemImage: "checkmark.seal.fill")
-                .font(.headline).foregroundStyle(.green)
+            if license.needsOnlineCheck {
+                Label("Lemon needs to confirm your licence", systemImage: "wifi.exclamationmark")
+                    .font(.headline).foregroundStyle(.orange)
+                Text("It hasn't been able to reach the licence server for 30 days. Connect to the internet, then click Check Now.")
+                    .font(.callout).multilineTextAlignment(.center)
+            } else {
+                Label("Lemon is activated on this Mac", systemImage: "checkmark.seal.fill")
+                    .font(.headline).foregroundStyle(.green)
+            }
             if let key = license.licenseKey {
                 Text("Licence key ending in \(String(key.suffix(4)))").font(.callout).foregroundStyle(.secondary)
             }
-            Text("Thank you for buying Lemon. Every feature is yours, with no limits.")
-                .font(.callout).multilineTextAlignment(.center)
-            Button(working ? "Deactivating…" : "Deactivate This Mac") {
-                Task { working = true; await license.deactivate(); working = false }
+            if !license.needsOnlineCheck {
+                Text("Thank you for buying Lemon. Every feature is yours, with no limits.")
+                    .font(.callout).multilineTextAlignment(.center)
             }
-            .buttonStyle(.glass).disabled(working)
+            if let lastChecked = license.lastChecked {
+                Text("Last confirmed \(lastChecked.formatted(.relative(presentation: .named)))")
+                    .font(.caption).foregroundStyle(.secondary)
+            }
+            HStack {
+                Button(working ? "Checking…" : "Check Now", action: checkNow)
+                    .buttonStyle(.glass).disabled(working)
+                Button("Deactivate This Mac") {
+                    Task { working = true; await license.deactivate(); working = false }
+                }
+                .buttonStyle(.glass).disabled(working)
+            }
+            if let checkMessage {
+                Text(checkMessage).font(.caption).foregroundStyle(.secondary).multilineTextAlignment(.center)
+            }
             Text("Deactivate to move your licence to another Mac.").font(.caption).foregroundStyle(.secondary)
         }
     }
@@ -233,6 +256,19 @@ struct LicencePanel: View {
                         .font(.caption).foregroundStyle(.red)
                 }
             }
+        }
+    }
+
+    private func checkNow() {
+        working = true
+        checkMessage = nil
+        Task {
+            switch await license.revalidate() {
+            case .confirmed: checkMessage = "Confirmed. Thank you!"
+            case .offline: checkMessage = "Couldn't reach the licence server. Check your internet connection."
+            case .removed, .notLicensed: checkMessage = "This key is no longer valid on this Mac. Contact support if you think this is wrong."
+            }
+            working = false
         }
     }
 

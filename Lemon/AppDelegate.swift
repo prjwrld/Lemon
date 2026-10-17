@@ -13,6 +13,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     private let watcher = DragWatcher()
     private let wheel = WheelController()
     private let hud = ProgressHUD()
+    private var licenceTimer: Timer?
     #if DEBUG
     private var demoBackdrop: NSWindow?
     #endif
@@ -41,11 +42,15 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         watcher.start()
         hud.start()
 
-        let demo = ["LemonDemoWheel", "LemonDemoEditor", "LemonDemoSettings", "LemonDemoWelcome", "LemonDemoPurchase", "LemonTestConvert", "LemonTestActivate"].contains { UserDefaults.standard.object(forKey: $0) != nil }
+        let demo = ["LemonDemoWheel", "LemonDemoEditor", "LemonDemoSettings", "LemonDemoWelcome", "LemonDemoPurchase", "LemonTestConvert", "LemonTestActivate", "LemonTestOffline"].contains { UserDefaults.standard.object(forKey: $0) != nil }
         if !AppSettings.shared.hasSeenWelcome && !demo {
             WelcomeWindow.show()
         }
+        // Confirm the licence at launch, then about once a day while Lemon runs.
         Task { await LicenseManager.shared.revalidate() }
+        licenceTimer = Timer.scheduledTimer(withTimeInterval: 3 * 3600, repeats: true) { _ in
+            Task { @MainActor in await LicenseManager.shared.revalidateIfDue() }
+        }
 
         #if DEBUG
         runDesignDemoIfAsked()
@@ -55,8 +60,9 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     /// Something was dropped on the wheel.
     private func choose(_ action: Action, files: [URL]) {
         // Practice files from the welcome tour always work and don't use up the free uses.
-        guard files.allSatisfy(Practice.contains) || LicenseManager.shared.canUse else {
-            PurchaseWindow.show(reason: "You've used all \(StoreConfig.freeUses) free uses. Buy Lemon once to keep going.")
+        let license = LicenseManager.shared
+        guard files.allSatisfy(Practice.contains) || license.canUse else {
+            PurchaseWindow.show()
             return
         }
         if case .tool(let tool) = action, tool.needsEditor {
@@ -108,11 +114,19 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             WelcomeWindow.show(step: defaults.integer(forKey: "LemonDemoWelcome"))
         }
         if defaults.bool(forKey: "LemonDemoPurchase") {
-            PurchaseWindow.show(reason: "You've used all \(StoreConfig.freeUses) free uses. Buy Lemon once to keep going.")
+            PurchaseWindow.show()
         }
         // Test helpers for the free-use limit and licence keys (no dragging needed):
         // "-LemonTestConvert /path/file -LemonTestFormat png" runs that wheel choice as if dropped;
         // "-LemonTestActivate KEY" tries a licence key and logs the result.
+        // "-LemonTestSetUses 3" sets the free uses; "-LemonTestLastChecked 40" pretends the licence
+        // was last confirmed that many days ago; "-LemonTestOffline YES" makes the licence server unreachable.
+        if defaults.object(forKey: "LemonTestSetUses") != nil {
+            LicenseManager.shared.debugSetUsesLeft(defaults.integer(forKey: "LemonTestSetUses"))
+        }
+        if defaults.object(forKey: "LemonTestLastChecked") != nil {
+            LicenseManager.shared.debugSetLastChecked(daysAgo: defaults.double(forKey: "LemonTestLastChecked"))
+        }
         if let path = defaults.string(forKey: "LemonTestConvert"),
            let format = OutputFormat(rawValue: defaults.string(forKey: "LemonTestFormat") ?? "png") {
             choose(.convert(format), files: [URL(fileURLWithPath: path)])

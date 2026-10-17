@@ -47,8 +47,15 @@ Lemon is a one-time purchase sold through [Lemon Squeezy](https://www.lemonsquee
   for Lemon are accepted), price text, website, privacy and terms pages, and support email. All are placeholders now.
 - In Lemon Squeezy, turn on **licence keys** for the product, with an activation limit (for example 2 Macs).
 
-To test the trial in a Debug build: `defaults write com.prajwal.Lemon debug.keychain.usesLeft 1`.
-To reset it: `defaults delete com.prajwal.Lemon debug.keychain.usesLeft`.
+- **Free uses can't be reset** by deleting one copy: the count is kept in the Keychain, in preferences and in a
+  hidden file, and the lowest wins (`FreeUses` in `License.swift`).
+- **Regular checks:** Lemon confirms the key at launch and about once a day. If Lemon Squeezy says the key is no
+  longer valid (refunded, disabled, made up, other product), the licence is removed. Offline, Lemon keeps working
+  for 30 days since the last successful check, then asks to connect and click Check Now.
+
+Testing in a Debug build (no dragging needed): `-LemonTestSetUses N`, `-LemonTestConvert /path/file -LemonTestFormat png`,
+`-LemonTestActivate KEY`, `-LemonTestLastChecked DAYS` and `-LemonTestOffline YES`, e.g.
+`build/Build/Products/Debug/Lemon.app/Contents/MacOS/Lemon -LemonTestSetUses 0 -LemonTestConvert ~/photo.jpg`.
 
 ## Build from source
 
