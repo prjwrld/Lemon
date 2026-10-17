@@ -4,13 +4,13 @@ main = "src/index.js"
 compatibility_date = "2026-09-01"
 
 [vars]
-# Lemon's price on your Razorpay Payment Page, in paise (₹499 = 49900). Only payments of
+# Lemon's price on your Razorpay Payment Page, in paise (₹799 = 79900). Only payments of
 # exactly this amount in INR create a key, so other sales on your account don't.
-PRICE_PAISE = "49900"
+PRICE_PAISE = "79900"
 # How many Macs one key can be active on at once.
 ACTIVATION_LIMIT = "2"
 # Shown in emails and on the Find My Key page.
-SUPPORT_EMAIL = "support@example.com"
+SUPPORT_EMAIL = "support@fixbyai.in"
 # Sender for key emails (a domain you've verified in Resend). Only used if RESEND_API_KEY is set.
 EMAIL_FROM = "Lemon <keys@example.com>"
 

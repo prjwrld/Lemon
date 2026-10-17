@@ -14,7 +14,7 @@ enum StoreConfig {
     static let websiteURL = URL(string: "https://example.com/lemon")!
     static let privacyURL = URL(string: "https://example.com/lemon/privacy")!
     static let termsURL = URL(string: "https://example.com/lemon/terms")!
-    static let supportEmail = "support@example.com"
+    static let supportEmail = "support@fixbyai.in"
     static var supportURL: URL { URL(string: "mailto:\(supportEmail)")! }
     /// The exact FFmpeg source Lemon's media helper is built from (see scripts/build-ffmpeg.sh).
     static let ffmpegSourceURL = URL(string: "https://ffmpeg.org/releases/ffmpeg-9.0.2.tar.xz")!
@@ -25,7 +25,7 @@ enum StoreConfig {
     /// Your Razorpay Payment Page for Lemon (one link many people can pay through).
     static let razorpayPageURL = URL(string: "https://pages.razorpay.com/REPLACE-WITH-YOUR-PAGE")!
     /// Shown on the India Buy button, e.g. "₹499". nil shows no price.
-    static let razorpayPriceText: String? = nil
+    static let razorpayPriceText: String? = "₹799"
     /// Lemon's own key server (Server/), which makes and checks the keys of Razorpay buyers.
     static let keyServerURL = URL(string: "https://lemon-licences.edupurspose.workers.dev")!
     /// "Find my key" page on the key server, for Razorpay buyers.
