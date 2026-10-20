@@ -13,6 +13,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     private let watcher = DragWatcher()
     private let wheel = WheelController()
     private let hud = ProgressHUD()
+    /// "Convert with Lemon" and "Lemon Tools" in Finder's right-click menu.
+    private lazy var services = ServiceProvider(wheel: wheel)
     private var licenceTimer: Timer?
     #if DEBUG
     private var demoBackdrop: NSWindow?
@@ -39,10 +41,12 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             self?.finished(urls)
         }
         wheel.prepare()
+        NSApp.servicesProvider = services
+        NSUpdateDynamicServices()
         watcher.start()
         hud.start()
 
-        let demo = ["LemonDemoWheel", "LemonDemoEditor", "LemonDemoSettings", "LemonDemoWelcome", "LemonDemoPurchase", "LemonTestConvert", "LemonTestActivate", "LemonTestOffline"].contains { UserDefaults.standard.object(forKey: $0) != nil }
+        let demo = ["LemonDemoWheel", "LemonDemoEditor", "LemonDemoSettings", "LemonDemoWelcome", "LemonDemoPurchase", "LemonTestConvert", "LemonTestActivate", "LemonTestOffline", "LemonTestService"].contains { UserDefaults.standard.object(forKey: $0) != nil }
         if !AppSettings.shared.hasSeenWelcome && !demo {
             WelcomeWindow.show()
         }
@@ -131,6 +135,15 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         if let path = defaults.string(forKey: "LemonTestConvert"),
            let format = OutputFormat(rawValue: defaults.string(forKey: "LemonTestFormat") ?? "png") {
             choose(.convert(format), files: [URL(fileURLWithPath: path)])
+        }
+        // "-LemonTestService /path/file" acts as if "Convert with Lemon" was chosen in Finder for that file
+        // (add "-LemonDemoMode tools" for "Lemon Tools"): the wheel opens at the pointer, in click mode.
+        if let path = defaults.string(forKey: "LemonTestService") {
+            let pasteboard = NSPasteboard(name: NSPasteboard.Name("LemonTestService"))
+            pasteboard.clearContents()
+            pasteboard.writeObjects([URL(fileURLWithPath: path) as NSURL])
+            let mode = WheelMode(rawValue: defaults.string(forKey: "LemonDemoMode") ?? "") ?? .convert
+            if !services.receive(pasteboard, mode: mode) { NSLog("LemonTest service: no files on the pasteboard") }
         }
         if let key = defaults.string(forKey: "LemonTestActivate") {
             Task {

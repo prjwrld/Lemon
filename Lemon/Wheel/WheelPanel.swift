@@ -1,20 +1,35 @@
 import AppKit
 import SwiftUI
 
-/// Shows and hides the floating wheel, and reports which choice was dropped on.
+/// Shows and hides the floating wheel, and reports which choice was dropped on (or clicked).
 final class WheelController {
+    /// How the wheel is used: files dropped on a slice while dragging (the Shift-drag shortcut), or a slice
+    /// clicked (Finder's right-click menu, where the files are already chosen and nothing is being dragged).
+    enum Interaction { case drag, click }
+
     var onChoose: ((_ files: [URL], _ action: Action) -> Void)?
 
     private let model = WheelModel()
     /// Counts wheels shown, so a late hide() can tell it belongs to an older one.
     private var generation = 0
-    private lazy var panel = WheelPanel(model: model) { [weak self] files, action in
-        self?.onChoose?(files, action)
-        self?.hide()
-    }
+    private lazy var panel: WheelPanel = {
+        let panel = WheelPanel(model: model) { [weak self] files, action in
+            self?.onChoose?(files, action)
+            self?.hide()
+        }
+        panel.onDismiss = { [weak self] in self?.hide(after: 0) }
+        panel.onResignKey = { [weak self] in self?.lostKeyStatus() }
+        return panel
+    }()
+
+    // Click mode: the wheel takes the keyboard (for Esc) and closes on a click anywhere else.
+    private var interaction = Interaction.drag
+    private var clickMonitors: [Any] = []
+    private var openedAt: TimeInterval = 0
+    private var forgaveKeyLoss = false
 
     /// Returns false (and shows nothing) if Lemon has no choices for these files.
-    func show(files: [URL], at screenPoint: NSPoint, mode: WheelMode) -> Bool {
+    func show(files: [URL], at screenPoint: NSPoint, mode: WheelMode, interaction: Interaction = .drag) -> Bool {
         let choices = ActionCatalog.actions(for: files, mode: mode)
         guard !choices.isEmpty else { return false }
 
@@ -25,11 +40,54 @@ final class WheelController {
         model.hovered = nil
         model.isOpen = true
 
+        endClickMode()
+        self.interaction = interaction
+        panel.interaction = interaction
         panel.setFrame(frame(centeredOn: screenPoint), display: true)
         if !panel.isVisible { panel.collapse() }   // never flash at full size
         panel.orderFrontRegardless()
+        if interaction == .click { beginClickMode() }
         panel.animateOpen()
         return true
+    }
+
+    /// Makes the wheel key (it's a non-activating panel, so the app in front stays in front) and watches
+    /// for clicks outside it. Mouse-down monitors need no special permission.
+    private func beginClickMode() {
+        openedAt = ProcessInfo.processInfo.systemUptime
+        forgaveKeyLoss = false
+        panel.makeKey()
+        let buttons: NSEvent.EventTypeMask = [.leftMouseDown, .rightMouseDown, .otherMouseDown]
+        let global = NSEvent.addGlobalMonitorForEvents(matching: buttons) { [weak self] _ in
+            MainActor.assumeIsolated { self?.hide(after: 0) }
+        }
+        let local = NSEvent.addLocalMonitorForEvents(matching: buttons) { [weak self] event in
+            MainActor.assumeIsolated {
+                if let self, event.window !== self.panel { self.hide(after: 0) }
+            }
+            return event
+        }
+        clickMonitors = [global, local].compactMap { $0 }
+    }
+
+    private func endClickMode() {
+        clickMonitors.forEach(NSEvent.removeMonitor)
+        clickMonitors = []
+    }
+
+    /// Another window took the keyboard: close. Except once just after opening, when the app whose menu
+    /// opened the wheel (Finder) may take it back as its menu closes; then the wheel takes it again.
+    private func lostKeyStatus() {
+        guard interaction == .click, model.isOpen else { return }
+        if !forgaveKeyLoss, ProcessInfo.processInfo.systemUptime - openedAt < 1 {
+            forgaveKeyLoss = true
+            let current = generation
+            DispatchQueue.main.async { [self] in
+                if generation == current, model.isOpen { panel.makeKey() }
+            }
+            return
+        }
+        hide(after: 0)
     }
 
     /// Sets the wheel's window up once, invisibly, at launch. Its first-ever display does
@@ -68,6 +126,7 @@ final class WheelController {
         DispatchQueue.main.asyncAfter(deadline: .now() + delay) { [self] in
             guard generation == current, model.isOpen else { return }
             model.isOpen = false   // drops are refused from now on
+            endClickMode()
             model.hovered = nil
             panel.animateClose { [self] in
                 guard generation == current else { return }
@@ -89,16 +148,32 @@ final class WheelController {
     }
 }
 
-/// A see-through window that floats above everything and never steals focus.
+/// A see-through window that floats above everything and never steals focus. In click mode it takes
+/// the keyboard (for Esc) without making Lemon the active app.
 final class WheelPanel: NSPanel {
     static let size: CGFloat = 330 // bigger than the wheel, to fit its shadow
 
     /// The SwiftUI wheel. Opening and closing move its layer with Core Animation, which runs
     /// in the system's renderer at the display's full frame rate, not in Lemon's own drawing.
     private let wheel: NSHostingView<WheelView>
+    private let dropTarget: DropTargetView
+
+    var interaction = WheelController.Interaction.drag {
+        didSet {
+            dropTarget.interaction = interaction
+            acceptsMouseMovedEvents = interaction == .click
+        }
+    }
+    /// Esc, or a click on the wheel outside its slices.
+    var onDismiss: (() -> Void)? {
+        didSet { dropTarget.onDismiss = onDismiss }
+    }
+    var onResignKey: (() -> Void)?
 
     init(model: WheelModel, onDrop: @escaping ([URL], Action) -> Void) {
         wheel = NSHostingView(rootView: WheelView(model: model))
+        // The drop target sits on top of the wheel, so it receives every drag (and click).
+        dropTarget = DropTargetView(model: model, onDrop: onDrop)
         super.init(
             contentRect: NSRect(x: 0, y: 0, width: Self.size, height: Self.size),
             styleMask: [.borderless, .nonactivatingPanel],
@@ -117,8 +192,6 @@ final class WheelPanel: NSPanel {
         wheel.frame = container.bounds
         wheel.autoresizingMask = [.width, .height]
         wheel.wantsLayer = true
-        // The drop target sits on top of the wheel, so it receives every drag.
-        let dropTarget = DropTargetView(model: model, onDrop: onDrop)
         dropTarget.frame = container.bounds
         dropTarget.autoresizingMask = [.width, .height]
         container.addSubview(wheel)
@@ -126,8 +199,21 @@ final class WheelPanel: NSPanel {
         contentView = container
     }
 
-    override var canBecomeKey: Bool { false }
+    override var canBecomeKey: Bool { interaction == .click }
     override var canBecomeMain: Bool { false }
+
+    override func resignKey() {
+        super.resignKey()
+        onResignKey?()
+    }
+
+    override func keyDown(with event: NSEvent) {
+        if event.keyCode == 53 { onDismiss?() } else { super.keyDown(with: event) }   // Esc
+    }
+
+    override func cancelOperation(_ sender: Any?) {
+        onDismiss?()
+    }
 
     // MARK: Opening and closing
     //
@@ -212,15 +298,23 @@ final class WheelPanel: NSPanel {
 }
 
 /// An invisible view that accepts dropped files and tracks which slice is under the pointer.
+/// In click mode it follows the pointer instead, and a click chooses the slice under it.
 final class DropTargetView: NSView {
     private let model: WheelModel
     private let onDrop: ([URL], Action) -> Void
+    var interaction = WheelController.Interaction.drag
+    var onDismiss: (() -> Void)?
 
     init(model: WheelModel, onDrop: @escaping ([URL], Action) -> Void) {
         self.model = model
         self.onDrop = onDrop
         super.init(frame: .zero)
         registerForDraggedTypes([.fileURL])
+        addTrackingArea(NSTrackingArea(
+            rect: .zero,
+            options: [.mouseMoved, .mouseEnteredAndExited, .activeAlways, .inVisibleRect],
+            owner: self
+        ))
     }
 
     required init?(coder: NSCoder) { fatalError("not used") }
@@ -257,14 +351,63 @@ final class DropTargetView: NSView {
             model.hovered = nil
             return []
         }
-        let location = convert(sender.draggingLocation, from: nil)
-        let fromCenter = CGPoint(x: location.x - bounds.midX, y: location.y - bounds.midY)
-        let slice = model.geometry.slice(at: fromCenter)
+        let slice = hover(at: sender.draggingLocation)
+        // .copy tells Finder we're making a copy, so the original is left alone.
+        return slice == nil ? [] : .copy
+    }
+
+    /// Highlights the slice under a point in window coordinates, and returns it.
+    @discardableResult
+    private func hover(at windowPoint: NSPoint) -> Int? {
+        let slice = model.geometry.slice(at: fromCenter(windowPoint))
         if slice != model.hovered {
             model.hovered = slice
             if slice != nil { Feedback.hover() }
         }
-        // .copy tells Finder we're making a copy, so the original is left alone.
-        return slice == nil ? [] : .copy
+        return slice
+    }
+
+    private func fromCenter(_ windowPoint: NSPoint) -> CGPoint {
+        let location = convert(windowPoint, from: nil)
+        return CGPoint(x: location.x - bounds.midX, y: location.y - bounds.midY)
+    }
+
+    // MARK: Click mode
+
+    /// The wheel opens under the pointer of an app that's in front, so the first click must count.
+    override func acceptsFirstMouse(for event: NSEvent?) -> Bool { true }
+
+    private var clicking: Bool { interaction == .click && model.isOpen }
+
+    override func mouseEntered(with event: NSEvent) {
+        if clicking { hover(at: event.locationInWindow) }
+    }
+
+    override func mouseMoved(with event: NSEvent) {
+        if clicking { hover(at: event.locationInWindow) }
+    }
+
+    override func mouseDragged(with event: NSEvent) {
+        if clicking { hover(at: event.locationInWindow) }
+    }
+
+    override func mouseExited(with event: NSEvent) {
+        if clicking { model.hovered = nil }
+    }
+
+    override func mouseDown(with event: NSEvent) {
+        if clicking { hover(at: event.locationInWindow) }
+    }
+
+    /// Choosing happens on release, so pressing, sliding to another slice and letting go also works.
+    /// A click on the wheel's see-through surroundings closes it; one in the middle does nothing.
+    override func mouseUp(with event: NSEvent) {
+        guard clicking else { return }
+        if hover(at: event.locationInWindow) != nil, let choice = model.hoveredChoice {
+            onDrop(model.files, choice)
+        } else {
+            let point = fromCenter(event.locationInWindow)
+            if hypot(point.x, point.y) > model.geometry.diameter / 2 { onDismiss?() }
+        }
     }
 }

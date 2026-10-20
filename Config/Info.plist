@@ -15,5 +15,45 @@
 	<true/>
 	<key>SUScheduledCheckInterval</key>
 	<integer>86400</integer>
+	<!-- Finder's right-click menu (Services): "Convert with Lemon" and "Lemon Tools" hand the selected files to the
+	     running Lemon (ServiceProvider.swift), which opens the wheel at the pointer. An empty NSRequiredContext
+	     turns them on without a trip to System Settings. -->
+	<key>NSServices</key>
+	<array>
+		<dict>
+			<key>NSMenuItem</key>
+			<dict>
+				<key>default</key>
+				<string>Convert with Lemon</string>
+			</dict>
+			<key>NSMessage</key>
+			<string>convertFiles</string>
+			<key>NSPortName</key>
+			<string>Lemon</string>
+			<key>NSSendFileTypes</key>
+			<array>
+				<string>public.item</string>
+			</array>
+			<key>NSRequiredContext</key>
+			<dict/>
+		</dict>
+		<dict>
+			<key>NSMenuItem</key>
+			<dict>
+				<key>default</key>
+				<string>Lemon Tools</string>
+			</dict>
+			<key>NSMessage</key>
+			<string>toolFiles</string>
+			<key>NSPortName</key>
+			<string>Lemon</string>
+			<key>NSSendFileTypes</key>
+			<array>
+				<string>public.item</string>
+			</array>
+			<key>NSRequiredContext</key>
+			<dict/>
+		</dict>
+	</array>
 </dict>
 </plist>
