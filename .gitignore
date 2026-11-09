@@ -11,3 +11,5 @@ Updates/public/*.dmg
 Updates/public/*.delta
 Updates/public/old_updates/
 Server/node_modules/
+# Wrangler caches (hold the Cloudflare account id)
+.wrangler/

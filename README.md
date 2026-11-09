@@ -4,7 +4,9 @@
 
 <p align="center">Convert and edit files by dragging them. A menu bar app for macOS, built with Liquid Glass.</p>
 
-> **Private repository.** Lemon is closed-source, paid software (one-time purchase). Don't share this code.
+> **Open source, paid builds.** Lemon's code is free under the [GPL-3.0](LICENSE). The signed, notarized app
+> with automatic updates is a one-time purchase from [fixbyai.in/lemon](https://fixbyai.in/lemon), which keeps
+> the project going.
 
 ---
 
@@ -129,7 +131,9 @@ git, and Sparkle uses them for delta updates. Debug builds never update themselv
 
 ## Licence
 
-Copyright © 2026 Prajwal Prasad. All rights reserved. See [LICENSE](LICENSE).
+Copyright © 2026 Prajwal Prasad. Lemon is free software: you can redistribute it and/or modify it under the
+terms of the GNU General Public License, version 3 or (at your option) any later version. It comes with no
+warranty. See [LICENSE](LICENSE). The Lemon name and icon are not covered by the GPL: forks should use their own.
 
 Audio and video features use [FFmpeg](https://ffmpeg.org) 9.0.2, built by `scripts/build-ffmpeg.sh` without
 GPL or non-free parts and shipped as a separate, replaceable helper under the
